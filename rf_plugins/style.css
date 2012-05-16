@@ -120,7 +120,9 @@ tr>:first-child {
 
 #preview {
 	width: 600px;
+	height: 600px;
 	float: left;
+	overflow: hidden;
 }
 
 .clearer {

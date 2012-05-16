@@ -1,7 +1,6 @@
 <?php 
 call_back_list("rss", array( 'load_data', 'render_rss' ) );
 array_push($pages, 'resource');
-$function_map['render_rss'] = 'render_rss';
 
 function render_rss() {
 	global $variables;
@@ -19,6 +18,7 @@ function render_rss() {
 	foreach($variables['data'] as $file => $data)
 	{
 		if(!$data['title']) { continue; }
+		if(!file_exists($file)) { continue; }
 		$resource_url = htmlentities($variables['rf_url'].'?page=resource&file='.$file);
 		print '<item><pubDate>';
 		$mtime = "";
@@ -31,6 +31,10 @@ function render_rss() {
   <link>'.$resource_url.'</link>
   <guid>'.$resource_url.'</guid>
   <description>'.htmlentities($data['description']).'</description>
+  <author>
+    <name>'.$data['creator'].'</name>
+    <email>'.$data['email'].'</email>
+  </author>
 </item>';
   
 	}

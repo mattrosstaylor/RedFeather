@@ -5,8 +5,9 @@ error_reporting(E_ALL);
 
 $pages = array();
 $functions = array();
-$function_map = array('load_data'=>'load_data', 'save_data'=>'save_data', 'render_resource'=>'render_resource', 'render_top'=>'render_top', 'render_bottom'=>'render_bottom', 'render_manage_list'=>'render_manage_list');
+$function_map = array();
 $variables = array('page'=>'');
+$variables['header_text'] = array('Roten','Feder','Lightweight Resource Exhibition and Discovery');
 $variables['rf_url'] = 'http://'.$_SERVER['HTTP_HOST'].$_SERVER['PHP_SELF'];
 
 // Probably breaks with windows and other things which dont use /
@@ -18,6 +19,7 @@ $variables['plugin_dir'] = "rf_plugins";
 // ensures that the metadata file exists
 touch($variables['metadata_file']);
 
+// define the default pages
 array_push($pages, 'resource');
 call_back_list('resource', array( 'load_data', 'render_top','render_resource','render_bottom'));
 
@@ -27,6 +29,7 @@ call_back_list('manage_resources', array( 'authenticate','load_data', 'render_to
 array_push($pages, 'save_resources');
 call_back_list('save_resources', array('authenticate','load_data','save_data'));
 
+// load the plugs
 if(is_dir($variables["plugin_dir"]))
 {
 	if ($dh = opendir($variables["plugin_dir"])) 
@@ -43,6 +46,7 @@ if(is_dir($variables["plugin_dir"]))
 
 }
 
+// load the specified page
 if(isset($_REQUEST['page']))
 {
 	call($_REQUEST['page']);
@@ -52,6 +56,7 @@ else
 	call('resource');
 }
 
+// output the page html
 print $variables['page'];
 
 
@@ -61,7 +66,9 @@ function call($function_name)
 	global $functions, $function_map;
 	foreach( $functions[$function_name] as $function )
 	{
-		call_user_func($function_map[$function]);
+		if (isset($function_map[$function]))
+			call_user_func($function_map[$function]);
+		else call_user_func($function);
 	}
 }
 
@@ -141,15 +148,15 @@ function render_top()
 	<title>'.$variables['page_title'].'</title>
 	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 	<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
-	<link rel="stylesheet" href="style" type="text/css" />
+	<link rel="stylesheet" href="rf_plugins/style" type="text/css" />
 </head><body>
 <div class="rf_content">';
 	$variables['page'] .=
 '
 <div id="rf_wrapper">
 <div id="rf_header">
-	<h1><a href="redfeather.php"><span class="rf_red">Red</span>Feather<img src="http://users.ecs.soton.ac.uk/pm5/redfeather/biddocs/small_logo.png"/></a></h1>
-	<h2>Lightweight Resource Exhibition and Discovery</h2>
+	<h1><a href="redfeather.php"><span class="rf_red">'.$variables['header_text'][0].'</span>'.$variables['header_text'][1].'<img src="http://users.ecs.soton.ac.uk/pm5/redfeather/biddocs/small_logo.png"/></a></h1>
+	<h2>'.$variables['header_text'][2].'</h2>
 </div>
 <div id="rf_content">';
 }
@@ -174,7 +181,7 @@ function render_resource()
 
 	$variables['page'] .= '<div id="rf_resource_main">';
 	
-	$variables['page'] .= '<iframe id="preview" src="http://docs.google.com/viewer?embedded=true&url='.urlencode($file_url).'" width="600" height="600" style="border: none;"></iframe>';
+	$variables['page'] .= '<iframe id="preview" src="http://docs.google.com/viewer?embedded=true&url='.urlencode($file_url).'"></iframe>';
 	$variables['page'] .= '<div id="rf_resource_metadata">';
 
 	$variables['page'] .= '<h2>Description</h2>';

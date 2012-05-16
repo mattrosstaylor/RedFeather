@@ -1,6 +1,5 @@
 <?php 
 session_start();
-$function_map['authenticate'] = 'authenticate';
 $variables["users"] = array("admin"=>"shoes");
 function authenticate() {
 	global $variables, $function_map, $_SESSION, $_POST;

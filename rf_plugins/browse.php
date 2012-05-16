@@ -2,7 +2,6 @@
 
 array_push($pages, 'browse');
 call_back_list('browse', array( 'load_data', 'render_top','render_browse','render_bottom'));
-$function_map["render_browse"] = "render_browse";
 	
 if(!isset($_REQUEST['page']))
 {
