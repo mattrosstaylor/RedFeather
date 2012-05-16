@@ -1,5 +1,5 @@
 <?php 
-$function_map['load_data'] = 'wordpress_load_data';
+//$function_map['load_data'] = 'wordpress_load_data';
 
 function wordpress_load_data()
 {

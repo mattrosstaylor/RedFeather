@@ -186,7 +186,6 @@ function render_resource()
 	$variables['page'] .= '<tr><td>Creator:</td><td>'.$data['creator'].' &lt;<a href="mailto:'.$data['email'].'">'.$data['email'].'</a>&gt;</td></tr>';
 	$variables['page'] .= '<tr><td>Updated:</td><td>'.date ("d F Y H:i:s.", filemtime($_REQUEST['file'])).'</td></tr>';
 	$variables['page'] .= '<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>';
-	$variables['page'] .= '<tr><td>Link here:</td><td>'.$this_url.'</td></tr>';
 	$variables['page'] .= '<tr><td>Download:</td><td><a target="_blank" href="'.$file_url.'">'.$file_url.'</a></td></tr>';
 	$variables['page'] .= '</tbody></table>';
 
@@ -215,7 +214,7 @@ function render_managed($data, $num)
 	$item_html = "<table><tbody>";
 	$item_html .= "<tr><th colspan='2'><a href='".$data['filename']."' target='_blank'>".$data['filename']."</th></tr><input type='hidden' name='filename$num' value='".$data['filename']."' />";
 	$item_html .= "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
-	$item_html .= "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off'>".$data['description']."</textarea></td></tr>";
+	$item_html .= "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='5'>".$data['description']."</textarea></td></tr>";
 	$item_html .= "<tr><td>Creator</td><td><input name='creator$num' value='".$data['creator']."' autocomplete='off' /></td></tr>";
 	$item_html .= "<tr><td>Email</td><td><input name='email$num' value='".$data['email']."' autocomplete='off' /></td></tr>";
 

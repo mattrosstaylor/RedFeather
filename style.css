@@ -110,20 +110,23 @@ tr>:first-child {
 .rf_manageable input, .rf_manageable textarea, .rf_manageable select {
 	font: inherit;
 	font-size:90%;
-	width: 300px;
+	width: 350px;
 }
 
 #rf_resource_metadata{
+	width: 450px;
+	margin-left: 620px;
 }
 
 #preview {
-	float:left;
-	margin-right:30px;
+	width: 600px;
+	float: left;
 }
 
 .clearer {
 	clear:both;
 }
+
 .rf_resource {
 	margin: 40px 0 0 0;
 }
