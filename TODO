@@ -1,22 +1,3 @@
-[done] manage_resources page
-	- needs to embody a fairly simple workflow. i dont think we are too far off. We should include some blurb about best practices
-
-[done] resource page
-	- duplicate the functionality in the big demo but lets have a slicker style sheet	
-
-[done] style
-	- it looks like poop, yo
-
-[done] browse page
-	- needs to list all the files we have metadata about in a clean way. Javascript search if its not too hard.
-
-[done] RSS export
-	- if we can demo this working with expert JISC will be pleased
-
-[done] user sessions
-	- sooner or later we need to sort out a basic authentication
-	- just a password - there is no need for a user account system
-
 RDF export
 	- straight forward serialization, got to be a bit careful about our choice of URIs
 
