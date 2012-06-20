@@ -148,12 +148,20 @@ tr>:first-child {
 	padding-right: 30px;
 }
 
-.rf_search {
+.rf_browse_tools {
 	font-size: 150%;
 	text-align: center;
 }
 
-.rf_search input {
+.rf_browse_tools a {
+	font-size: small;
+}
+
+.rf_browse_tools img {
+	vertical-align: center;
+}
+
+.rf_browse_tools input {
 	font-size: inherit;
 }
 

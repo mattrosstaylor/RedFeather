@@ -1,60 +1,55 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('log_errors', 1); 
-error_reporting(E_ALL);
+ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ALL);
 
-$pages = array();
-$functions = array();
-$function_map = array();
+// global variables 
 $variables = array('page'=>'');
-$variables['header_text'] = array('Roten','Feder','Lightweight Resource Exhibition and Discovery');
+
+// use variables
+$variables['header_text'] = array('Red','Feather','Lightweight Resource Exhibition and Discovery');
+$variables["users"] = array("admin"=>"shoes");
+
+
+// set system variables
 $variables['rf_url'] = 'http://'.$_SERVER['HTTP_HOST'].$_SERVER['PHP_SELF'];
-
-// Probably breaks with windows and other things which dont use /
 $variables['rf_file'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
-
 $variables['metadata_file'] = "rf_data.php";
 $variables['plugin_dir'] = "rf_plugins";
 
 // ensures that the metadata file exists
 touch($variables['metadata_file']);
 
+// function storage
+$functions = array();
+$function_map = array();
+
+
 // define the default pages
-array_push($pages, 'resource');
+call_back_list('browse', array( 'load_data', 'render_top','render_browse','render_bottom'));
 call_back_list('resource', array( 'load_data', 'render_top','render_resource','render_bottom'));
-
-array_push($pages, 'manage_resources');
 call_back_list('manage_resources', array( 'authenticate','load_data', 'render_top','render_manage_list','render_bottom'));
-
-array_push($pages, 'save_resources');
 call_back_list('save_resources', array('authenticate','load_data','save_data'));
+call_back_list("rss", array( 'load_data', 'render_rss' ) );
+call_back_list("rdf", array( 'load_data', 'render_rdf' ) );
+if(!isset($_REQUEST['page'])) $_REQUEST['page'] = "browse";
+
 
 // load the plugs
 if(is_dir($variables["plugin_dir"]))
-{
-	if ($dh = opendir($variables["plugin_dir"])) 
-	{
+	if ($dh = opendir($variables["plugin_dir"]))
+	{ 
 		while (($file = readdir($dh)) !== false) 
 		{
 			if(is_file($variables['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file))
-			{
 				include($variables['plugin_dir'].'/'.$file);
-			}
 		}
 		closedir($dh);
 	}
 
-}
-
 // load the specified page
 if(isset($_REQUEST['page']))
-{
 	call($_REQUEST['page']);
-}
 else
-{
 	call('resource');
-}
 
 // output the page html
 print $variables['page'];
@@ -65,28 +60,21 @@ function call($function_name)
 {
 	global $functions, $function_map;
 	foreach( $functions[$function_name] as $function )
-	{
 		if (isset($function_map[$function]))
 			call_user_func($function_map[$function]);
 		else call_user_func($function);
-	}
 }
 
-function call_back_list($function_name, $list=Null)
+function call_back_list($function_name, $list=NULL)
 {
 	global $functions;
-	if($list == Null)
+	if($list == NULL)
 	{
 		if(isset($functions[$function_name]))
-		{
 			return $functions[$function_name];
-		}
-		
 		return array();
 	}
-
 	$functions[$function_name] = $list;
-	return True;
 }
 
 function get_licenses()
@@ -108,9 +96,7 @@ function load_data()
 	global $variables;
 	$variables['data'] = unserialize(file_get_contents($variables['metadata_file']));
 	if(!is_array($variables["data"]) )
-	{
 		$variables["data"]= array();
-	}
 
 }
 
@@ -122,7 +108,7 @@ function save_data()
 	for ($i = 0; $i < $_REQUEST['resource_count']; $i++)
 	{
 		$filename = $_REQUEST["filename$i"];
-		if ($filename == null) continue;
+		if ($filename == NULL) continue;
 
 		foreach ($_REQUEST as $key => $value)
 			if (preg_match("/(.*)($i\$)/", $key, $matches))
@@ -164,8 +150,51 @@ function render_top()
 function render_bottom()
 {
 	global $variables;
-	$variables['page'] .= '</div><div id="rf_footer">&copy; Copyright 2012 | <a href="http://redfeather.ecs.soton.ac.uk">RedFeather Project</a> | <a target="_blank" href="http://blogs.ecs.soton.ac.uk/oneshare/tag/redfeather/">OneShare</a> | <a href="'.$_SERVER['SCRIPT_NAME'].'?page=manage_resources">Manage Resources</a></div></div>
+	$variables['page'] .= '</div><div id="rf_footer">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$_SERVER['SCRIPT_NAME'].'?page=manage_resources">Manage Resources</a></div></div>
 </html>';
+}
+
+function render_browse()
+{
+	global $variables;
+
+	$licenses = get_licenses();
+
+	$variables["page"] .= '<div class="rf_browse_tools">
+	Search these resources: <input id="rf_filter" onkeyup="filter()"type="text" value="" />
+	<script type="text/javascript">
+		function filter(){
+			var filter = $("#rf_filter").val();
+			if(filter == ""){
+				$(".rf_resource").show();	
+				return;
+			}
+			$(".rf_resource").hide();
+			$(".rf_resource:contains("+$("#rf_filter").val()+")").show();
+		}
+	</script>
+	<a href="redfeather.php?page=rss">RSS<img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/></a>&nbsp;
+	<a href="redfeather.php?page=rdf">RDF+XML<img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/></a>
+</div>
+	';
+
+	$variables["page"] .= '<div class="rf_browse_list">';
+	foreach($variables["data"] as $filename => $data)
+	{
+		$url = $_SERVER["SCRIPT_NAME"]."?page=resource&file=".$filename;
+		$variables["page"] .= sprintf(<<<BLOCK
+<div class="rf_resource">
+	<h2 class="rf_resource_title"><a href="$url">%s</a></h2>
+	<p class="rf_description">%s</p>
+	<span class="rf_creator"><span class="field_name">Creator:</span><td> %s</span>
+	<span class="rf_last_modified"><span class="field_name">Last Modified:</span> %s</span>
+	<span class="rf_license"><span class="field_name">License:</span> %s</span>
+	<span class="rf_download"><a href="$filename">Download</a></span>
+</div>
+BLOCK
+, $data["title"], $data["description"], $data["creator"], is_file($filename) ? date ("d F Y - H:i", filemtime($filename)) : "unavailable", $licenses[$data["license"]]); 
+	}
+	$variables["page"] .= '</div>';
 }
 
 function render_resource()
@@ -215,33 +244,35 @@ function render_resource()
 }
 
 
-function render_managed($data, $num)
-{
-	global $variables;
-	$item_html = "<table><tbody>";
-	$item_html .= "<tr><th colspan='2'><a href='".$data['filename']."' target='_blank'>".$data['filename']."</th></tr><input type='hidden' name='filename$num' value='".$data['filename']."' />";
-	$item_html .= "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
-	$item_html .= "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='5'>".$data['description']."</textarea></td></tr>";
-	$item_html .= "<tr><td>Creator</td><td><input name='creator$num' value='".$data['creator']."' autocomplete='off' /></td></tr>";
-	$item_html .= "<tr><td>Email</td><td><input name='email$num' value='".$data['email']."' autocomplete='off' /></td></tr>";
 
-	$license_options = "";
-	foreach (get_licenses() as $key => $value)	
+function authenticate() {
+	global $variables, $function_map, $_SESSION, $_POST;
+	
+	if(isset($_SESSION["current_user"]))
 	{
-		if ($data['license'] == $key)
-			$selected = 'selected';
-		else
-			$selected = '';
-
-		$license_options .= "<option value='$key' $selected autocomplete='off'>$value</option>";
+		return ;
 	}
+	if (isset($_POST["username"]) && isset($_POST["password"]) 
+		&& isset($variables['users'][$_POST["username"]]) 
+		&& $variables['users'][$_POST["username"]]==$_POST["password"]) 
+	{
+		$_SESSION["current_user"]=$_POST["username"];
+		return;
+	}
+	
+	
+	call_user_func('render_top');
 
-	$item_html .= "<tr><td class='rf_table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
-	$item_html .= "</tbody></table>";
+	$variables['page'] .= '<form method="post" action="'.$variables['rf_file'].'?'.$_SERVER['QUERY_STRING'].'">
+	Username: <input type="text" name="username" />
+	Password: <input type="password" name="password" />
+	<input type="submit" value="Login" />
+	</form>';
+	call_user_func('render_bottom');
 
-	return $item_html;
+	print $variables['page'];
+	exit;
 }
-
 
 function render_manage_list()
 {
@@ -259,10 +290,10 @@ function render_manage_list()
 	$variables["page"] .= "<form action='".$variables["rf_file"]."?page=save_resources' method='POST'>\n";
 	foreach (scandir($dir) as $file)
 	{
-		if(is_dir($dir.$file)){continue;}
-		if($file == $variables["rf_file"]){continue;}
-		if($file == $variables["metadata_file"]){continue;}
-		if(preg_match("/^\./", $file)){continue;}
+		if(is_dir($dir.$file)) continue;
+		if($file == $variables["rf_file"]) continue;
+		if($file == $variables["metadata_file"]) continue;
+		if(preg_match("/^\./", $file)) continue;
 
 		if (isset($variables["data"]["$file"])) {
 			$data = $variables["data"]["$file"];
@@ -301,3 +332,102 @@ function render_manage_list()
 	$variables["page"] .= "<input type='submit' value='Save'/>";
 	$variables["page"] .= "</form>";
 }
+
+
+function render_managed($data, $num)
+{
+	global $variables;
+	$item_html = "<table><tbody>";
+	$item_html .= "<tr><th colspan='2'><a href='".$data['filename']."' target='_blank'>".$data['filename']."</th></tr><input type='hidden' name='filename$num' value='".$data['filename']."' />";
+	$item_html .= "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
+	$item_html .= "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='5'>".$data['description']."</textarea></td></tr>";
+	$item_html .= "<tr><td>Creator</td><td><input name='creator$num' value='".$data['creator']."' autocomplete='off' /></td></tr>";
+	$item_html .= "<tr><td>Email</td><td><input name='email$num' value='".$data['email']."' autocomplete='off' /></td></tr>";
+
+	$license_options = "";
+	foreach (get_licenses() as $key => $value)	
+	{
+		if ($data['license'] == $key)
+			$selected = 'selected';
+		else
+			$selected = '';
+
+		$license_options .= "<option value='$key' $selected autocomplete='off'>$value</option>";
+	}
+
+	$item_html .= "<tr><td class='rf_table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
+	$item_html .= "</tbody></table>";
+
+	return $item_html;
+}
+
+
+function render_rss() {
+        global $variables;
+        
+        header("Content-type: application/rss+xml");
+
+        echo '<?xml version="1.0" encoding="utf-8" ?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+    <title>RedFeather RSS</title>
+    <link>'.$variables["rf_url"].'</link>
+    <atom:link rel="self" href="'.$variables['rf_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
+    <description></description>
+    <language>en</language>
+';
+        foreach($variables['data'] as $file => $data)
+        {
+                if(!$data['title']) { continue; }
+                $resource_url = htmlentities($variables['rf_url'].'?page=resource&file='.$file);
+                print '<item><pubDate>';
+                $mtime = "";
+                if(is_file($file)){
+                        $mtime = filemtime($file);
+                }
+                print date ("d M Y H:i:s O", $mtime);
+                print '</pubDate>
+  <title>'.htmlentities($data['title']).'</title>
+  <link>'.$resource_url.'</link>
+  <guid>'.$resource_url.'</guid>
+  <description>'.htmlentities($data['description']).'</description>
+</item>';
+        }
+
+        print '</channel></rss>';
+}
+
+function render_rdf() {
+        global $variables;
+        
+        header("Content-type: application/rss+xml");
+
+        echo '<?xml version="1.0" encoding="utf-8" ?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
+    <title>RedFeather RSS</title>
+    <link>'.$variables["rf_url"].'</link>
+    <atom:link rel="self" href="'.$variables['rf_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
+    <description></description>
+    <language>en</language>
+';
+        foreach($variables['data'] as $file => $data)
+        {
+                if(!$data['title']) { continue; }
+                $resource_url = htmlentities($variables['rf_url'].'?page=resource&file='.$file);
+                print '<item><pubDate>';
+                $mtime = "";
+                if(is_file($file)){
+                        $mtime = filemtime($file);
+                }
+                print date ("d M Y H:i:s O", $mtime);
+                print '</pubDate>
+  <title>'.htmlentities($data['title']).'</title>
+  <link>'.$resource_url.'</link>
+  <guid>'.$resource_url.'</guid>
+  <description>'.htmlentities($data['description']).'</description>
+</item>';
+  
+        }
+
+        print '</channel></rss>';
+}
+
