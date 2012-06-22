@@ -1,22 +1,33 @@
 <?php
 ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ALL);
-session_start();
 
 // global variables 
 $variables = array('page'=>'');
 
 // use variables
+$variables['users'] = array('admin'=>'shoes');
 $variables['header_text'] = array('Red','Feather','Lightweight Resource Exhibition and Discovery');
-$variables['palette'] = array('color1'=>'#AC1F1F', 'color2'=>'#F0D0D0','text1' => 'black', 'text2'=>'#606060' );
-$variables['header_logo'] = 'http://users.ecs.soton.ac.uk/pm5/redfeather/biddocs/small_logo.png';
-$variables["users"] = array("admin"=>"shoes");
+$variables['theme'] = array(
+	'color1'=>'#AC1F1F',
+	'color2'=>'#F0D0D0',
+	'text1'=>'black',
+	'text2'=>'#606060',
+	'font'=>'"helvetica", sans-serif',
+	'background'=>'',
+	'header_logo' => 'http://users.ecs.soton.ac.uk/pm5/redfeather/biddocs/small_logo.png',
+);
+$variables['default_metadata'] = array('title'=>'','description'=>'', 'creator'=>'','email'=>'', 'license'=>'');
+$variables['default_metadata'] = array('title'=>'','description'=>'', 'creator'=>'Matt R Taylor','email'=>'mrt@ecs.soton.ac.uk', 'license'=>'by-nd');
 
 
-$variables['header_text'] = array('Green','Feather','Lightweight Resource Exhibition and Discovery');$variables['palette'] = array('color1'=>'#1FAC1F', 'color2'=>'#D0F0D0','text1' => 'black', 'text2'=>'#606060' );$variables['header_logo'] = 'http://gallerywall.co.uk/shop/images/Green_Peacock_Feather.jpg';
+//$variables['header_text'] = array('Green','Feather','Now with a custom name and colour scheme');$variables['theme'] = array('color1'=>'#1FAC1F', 'color2'=>'#D0F0D0','text1' => '#3F5F3F', 'text2'=>'#90A090', 'header_logo'=>'http://gallerywall.co.uk/shop/images/Green_Peacock_Feather.jpg', 'font'=>'serif', 'background'=>'');
 
-//$variables['header_text'] = array('Blue','Feather','Lightweight Resource Exhibition and Discovery');$variables['palette'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060' );$variables['header_logo'] = 'http://continentalfeathers.com/images/drabgreenbig.jpg2';
+$variables['header_text'] = array('Blue','Feather','Lightweight Resource Exhibition and Discovery');$variables['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
+
+
+//$variables['header_text'] = array('Derp','Feather','Herp herp derp derp derp!!');$variables['theme'] = array('color1'=>'cyan', 'color2'=>'magenta','text1' => 'yellow', 'text2'=>'#55FF55', 'header_logo' => 'http://images.sodahead.com/blogs/000200043/blogs_turkey_4946_822901_poll_xlarge.jpeg', 'background'=>'#fdd', 'font'=>'"comic sans ms", cursive');
+
 // set system variables
-
 $variables['rf_url'] = 'http://'.$_SERVER['HTTP_HOST'].$_SERVER['PHP_SELF'];
 $variables['rf_file'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
 $variables['metadata_file'] = "rf_data.php";
@@ -29,19 +40,21 @@ touch($variables['metadata_file']);
 $functions = array();
 $function_map = array();
 
-// define the default pages
+// add core page flows
 call_back_list('browse', array( 'load_data', 'render_top','render_browse','render_bottom'));
 call_back_list('resource', array( 'load_data', 'render_top','render_resource','render_bottom'));
 call_back_list('manage_resources', array( 'authenticate','load_data', 'render_top','render_manage_list','render_bottom'));
 call_back_list('save_resources', array('authenticate','load_data','save_data'));
 call_back_list("rss", array( 'load_data', 'render_rss' ) );
 call_back_list("rdf", array( 'load_data', 'render_rdf' ) );
+
+// set the default page to browse
 if(!isset($_REQUEST['page'])) $_REQUEST['page'] = "browse";
 
 
-// load the plugs
-if(is_dir($variables["plugin_dir"]))
-	if ($dh = opendir($variables["plugin_dir"]))
+// load the plugins
+if(is_dir($variables['plugin_dir']))
+	if ($dh = opendir($variables['plugin_dir']))
 	{ 
 		while (($file = readdir($dh)) !== false) 
 		{
@@ -87,16 +100,16 @@ function load_data()
 {
 	global $variables;
 	$variables['data'] = unserialize(file_get_contents($variables['metadata_file']));
-	if(!is_array($variables["data"]) )
-		$variables["data"]= array();
+	if(!is_array($variables['data']) )
+		$variables['data']= array();
 
 }
 
 function save_data()
 {
 	global $variables;
-	$old_data = $variables["data"];
-	$variables["data"] = array();
+	$old_data = $variables['data'];
+	$variables['data'] = array();
 	for ($i = 0; $i < $_REQUEST['resource_count']; $i++)
 	{
 		$filename = $_REQUEST["filename$i"];
@@ -111,7 +124,7 @@ function save_data()
 		foreach ($_REQUEST['missing'] as $missed)
 			$variables['data'][$missed] = $old_data[$missed];
 
-	$fh = fopen($variables["metadata_file"], "w");
+	$fh = fopen($variables['metadata_file'], 'w');
 	fwrite($fh,serialize($variables['data']));
 	fclose($fh); 
 	header('Location: redfeather.php?page=manage_resources');
@@ -120,14 +133,17 @@ function save_data()
 function stylesheet()
 {
 	global $variables;
-	$text1 = $variables['palette']['text1'];
-	$text2 = $variables['palette']['text2'];
-	$color1 = $variables['palette']['color1'];
-	$color2 = $variables['palette']['color2'];
+	$text1 = $variables['theme']['text1'];
+	$text2 = $variables['theme']['text2'];
+	$color1 = $variables['theme']['color1'];
+	$color2 = $variables['theme']['color2'];
+	$background = $variables['theme']['background'];
+	$font = $variables['theme']['font'];
 	return "
 body { 
-	font-family: serif, 'Helvetica', 'sans-serif';
+	font-family: $font;
 	color: $text1;
+	background: $background;
 }
 h1 { 
 	font-weight:bold;
@@ -280,7 +296,7 @@ function render_top()
 '
 <div id="wrapper">
 <div id="header">
-	<h1><a href="redfeather.php"><span class="titlespan">'.$variables['header_text'][0].'</span>'.$variables['header_text'][1].'<img src="'. $variables['header_logo'].'"/></a></h1>
+	<h1><a href="redfeather.php"><span class="titlespan">'.$variables['header_text'][0].'</span>'.$variables['header_text'][1].'<img src="'. $variables['theme']['header_logo'].'"/></a></h1>
 	<h2>'.$variables['header_text'][2].'</h2>
 </div>
 <div id="content">';
@@ -299,7 +315,7 @@ function render_browse()
 
 	$licenses = get_licenses();
 
-	$variables["page"] .= '<div class="browse_tools">
+	$variables['page'] .= '<div class="browse_tools">
 	Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
 	<script type="text/javascript">
 		function filter(){
@@ -317,11 +333,11 @@ function render_browse()
 </div>
 	';
 
-	$variables["page"] .= '<div class="browse_list">';
-	foreach($variables["data"] as $filename => $data)
+	$variables['page'] .= '<div class="browse_list">';
+	foreach($variables['data'] as $filename => $data)
 	{
-		$url = $_SERVER["SCRIPT_NAME"]."?page=resource&file=".$filename;
-		$variables["page"] .= sprintf(<<<BLOCK
+		$url = $_SERVER['SCRIPT_NAME']."?page=resource&file=".$filename;
+		$variables['page'] .= sprintf(<<<BLOCK
 <div class="resource">
 	<h2 class="resource_title"><a href="$url">%s</a></h2>
 	<p class="description">%s</p>
@@ -331,9 +347,9 @@ function render_browse()
 	<span class="download"><a href="$filename">Download</a></span>
 </div>
 BLOCK
-, $data["title"], $data["description"], $data["creator"], is_file($filename) ? date ("d F Y - H:i", filemtime($filename)) : "unavailable", $licenses[$data["license"]]); 
+, $data['title'], $data['description'], $data['creator'], is_file($filename) ? date ('d F Y - H:i', filemtime($filename)) : 'unavailable', $licenses[$data['license']]); 
 	}
-	$variables["page"] .= '</div>';
+	$variables['page'] .= '</div>';
 }
 
 function render_resource()
@@ -394,16 +410,17 @@ function get_licenses()
 function authenticate() {
 	//global $variables, $function_map, $_SESSION, $_POST;
 	global $variables, $function_map;
-	
-	if(isset($_SESSION["current_user"]))
+	session_set_cookie_params(0, $variables['rf_url']);
+	session_start();
+	if(isset($_SESSION['current_user']))
 	{
-		return ;
+		return 0;
 	}
-	if (isset($_POST["username"]) && isset($_POST["password"]) 
-		&& isset($variables['users'][$_POST["username"]]) 
-		&& $variables['users'][$_POST["username"]]==$_POST["password"]) 
+	if (isset($_POST['username']) && isset($_POST['password']) 
+		&& isset($variables['users'][$_POST['username']]) 
+		&& $variables['users'][$_POST['username']]==$_POST['password']) 
 	{
-		$_SESSION["current_user"]=$_POST["username"];
+		$_SESSION['current_user']=$_POST['username'];
 		return;
 	}
 	
@@ -434,23 +451,24 @@ function render_manage_list()
 	$new_resources_html = '';
 	$files_found_list = array();
 		
-	$variables["page"] .= "<form action='".$variables["rf_file"]."?page=save_resources' method='POST'>\n";
+	$variables['page'] .= "<form action='".$variables['rf_file']."?page=save_resources' method='POST'>\n";
 	foreach (scandir($dir) as $file)
 	{
 		if(is_dir($dir.$file)) continue;
-		if($file == $variables["rf_file"]) continue;
-		if($file == $variables["metadata_file"]) continue;
+		if($file == $variables['rf_file']) continue;
+		if($file == $variables['metadata_file']) continue;
 		if(preg_match("/^\./", $file)) continue;
 
-		if (isset($variables["data"]["$file"])) {
-			$data = $variables["data"]["$file"];
+		if (isset($variables['data'][$file])) {
+			$data = $variables['data'][$file];
 			array_push($files_found_list, $file);
 			$manage_resources_html .= "<div class='manageable' id='resource$num'>".render_managed($data, $num)."</div>";
 		}
 		else
 		{
 			//the default data for the workflow
-			$data = array('filename'=>$file,'title'=>'','description'=>'', 'creator'=>'','email'=>'', 'license'=>'');
+			$data = $variables['default_metadata'];
+			$data['filename'] = $file;
 			$new_resources_html .= "<div class='manageable' id='resource$num'>".render_managed($data, $num)."</div>";
 			$new_file_count++;
 		}
@@ -470,14 +488,14 @@ function render_manage_list()
 		}
 	}
 	
-	$variables["page"] .= $missing_resources_html;
-	if ($new_file_count) $variables["page"] .= "<div class='new_resources'><p>$new_file_count new files found.</p>".$new_resources_html."</div>";
+	$variables['page'] .= $missing_resources_html;
+	if ($new_file_count) $variables['page'] .= "<div class='new_resources'><p>$new_file_count new files found.</p>".$new_resources_html."</div>";
 
 
-	$variables["page"] .= "<div>$manage_resources_html</div>";
-	$variables["page"] .= "<input type='hidden' name='resource_count' value='$num'/>";
-	$variables["page"] .= "<input type='submit' value='Save'/>";
-	$variables["page"] .= "</form>";
+	$variables['page'] .= "<div>$manage_resources_html</div>";
+	$variables['page'] .= "<input type='hidden' name='resource_count' value='$num'/>";
+	$variables['page'] .= "<input type='submit' value='Save'/>";
+	$variables['page'] .= "</form>";
 }
 
 
@@ -517,7 +535,7 @@ function render_rss() {
         echo '<?xml version="1.0" encoding="utf-8" ?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
     <title>RedFeather RSS</title>
-    <link>'.$variables["rf_url"].'</link>
+    <link>'.$variables['rf_url'].'</link>
     <atom:link rel="self" href="'.$variables['rf_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
     <description></description>
     <language>en</language>
@@ -545,36 +563,6 @@ function render_rss() {
 
 function render_rdf() {
         global $variables;
-        
-        header("Content-type: application/rss+xml");
-
-        echo '<?xml version="1.0" encoding="utf-8" ?>
-<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
-    <title>RedFeather RSS</title>
-    <link>'.$variables["rf_url"].'</link>
-    <atom:link rel="self" href="'.$variables['rf_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
-    <description></description>
-    <language>en</language>
-';
-        foreach($variables['data'] as $file => $data)
-        {
-                if(!$data['title']) { continue; }
-                $resource_url = htmlentities($variables['rf_url'].'?page=resource&file='.$file);
-                print '<item><pubDate>';
-                $mtime = "";
-                if(is_file($file)){
-                        $mtime = filemtime($file);
-                }
-                print date ("d M Y H:i:s O", $mtime);
-                print '</pubDate>
-  <title>'.htmlentities($data['title']).'</title>
-  <link>'.$resource_url.'</link>
-  <guid>'.$resource_url.'</guid>
-  <description>'.htmlentities($data['description']).'</description>
-</item>';
-  
-        }
-
-        print '</channel></rss>';
+	print 'Coming soon...';        
 }
 
