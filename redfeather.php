@@ -12,9 +12,8 @@ $variables['theme'] = array(
 	'color2'=>'#F0D0D0',
 	'text1'=>'black',
 	'text2'=>'#606060',
-	'font'=>'"helvetica", sans-serif',
+	'font'=>'sans-serif',
 	'background'=>'',
-	'header_logo' => 'http://users.ecs.soton.ac.uk/pm5/redfeather/biddocs/small_logo.png',
 );
 $variables['default_metadata'] = array('title'=>'','description'=>'', 'creator'=>'','email'=>'', 'license'=>'');
 $variables['default_metadata'] = array('title'=>'','description'=>'', 'creator'=>'Matt R Taylor','email'=>'mrt@ecs.soton.ac.uk', 'license'=>'by-nd');
@@ -22,14 +21,18 @@ $variables['default_metadata'] = array('title'=>'','description'=>'', 'creator'=
 
 //$variables['header_text'] = array('Green','Feather','Now with a custom name and colour scheme');$variables['theme'] = array('color1'=>'#1FAC1F', 'color2'=>'#D0F0D0','text1' => '#3F5F3F', 'text2'=>'#90A090', 'header_logo'=>'http://gallerywall.co.uk/shop/images/Green_Peacock_Feather.jpg', 'font'=>'serif', 'background'=>'');
 
-$variables['header_text'] = array('Blue','Feather','Lightweight Resource Exhibition and Discovery');$variables['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
+//$variables['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$variables['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
 
 
-//$variables['header_text'] = array('Derp','Feather','Herp herp derp derp derp!!');$variables['theme'] = array('color1'=>'cyan', 'color2'=>'magenta','text1' => 'yellow', 'text2'=>'#55FF55', 'header_logo' => 'http://images.sodahead.com/blogs/000200043/blogs_turkey_4946_822901_poll_xlarge.jpeg', 'background'=>'#fdd', 'font'=>'"comic sans ms", cursive');
+//$variables['header_text'] = array('Derp','Feather','Herp herp derp derp derp!!');$variables['theme'] = array('color1'=>'cyan', 'color2'=>'magenta','text1' => 'yellow', 'text2'=>'#55FF55', 'header_logo' => 'http://images.sodahead.com/blogs/000200043/blogs_turkey_4946_822901_poll_xlarge.jpeg', 'background'=>'#daa', 'font'=>'"sans-serif');
+
 
 // set system variables
-$variables['rf_url'] = 'http://'.$_SERVER['HTTP_HOST'].$_SERVER['PHP_SELF'];
 $variables['rf_file'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
+$variables['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
+$variables['rf_url'] = $variables['base_url'].$variables['rf_file'];
+
+
 $variables['metadata_file'] = "rf_data.php";
 $variables['plugin_dir'] = "rf_plugins";
 
@@ -127,7 +130,7 @@ function save_data()
 	$fh = fopen($variables['metadata_file'], 'w');
 	fwrite($fh,serialize($variables['data']));
 	fclose($fh); 
-	header('Location: redfeather.php?page=manage_resources');
+	header('Location:'.$variables['rf_url'].'?page=manage_resources');
 }
 
 function stylesheet()
@@ -139,17 +142,21 @@ function stylesheet()
 	$color2 = $variables['theme']['color2'];
 	$background = $variables['theme']['background'];
 	$font = $variables['theme']['font'];
+	$preview_width = '720px';
+	$preview_height = '520px';
 	return "
 body { 
 	font-family: $font;
 	color: $text1;
 	background: $background;
+	line-height: 1.15;
 }
 h1 { 
+	font-size: 1.4em; 
 	font-weight:bold;
 }
-h2 {
-	font-size: 200%;
+p, h1 {
+	margin-bottom: 0.25em;
 }
 a {
 	color: $color1;
@@ -161,119 +168,98 @@ a:hover, a:active {
 	text-decoration: underline;
 }
 #header {
-	padding: 10px 50px 20px 50px;
 	background: $color2;
-	border-bottom: 1px solid $color1;
+	border-bottom: 2px solid $color1;
+	padding: 0.5em;
 }
 #header h1 {
-	font-size: 400%;
+	font-size: 2.3em;
+	margin-bottom: 0;
+}
+#header h2 {
+	font-size: 1.2em;
+	font-style: italic;
+	color: $text2;
 }
 #header a {
 	color:inherit;
 	text-decoration: none;
 }
-#header img {
-	height: 64px;
-	vertical-align: top;
-	padding-left:5px;
-}
-#header h2 {
-	font-style: italic;
-	font-size: 20px;
-	color: $text2;
-}
 .titlespan {
 	color: $color1;
 }
 #footer {
-	padding: 15px 50px 15px 50px; 
+	padding: 0.5em; 
 	background: $color2;
-	border-bottom: 1px solid $color1;
-	border-top: 1px solid $color1;
+	border-bottom: 2px solid $color1;
+	border-top: 2px solid $color1;
 }
 #content {
-	padding:20px 50px;
-}
-#content h1 {
-	font-size: 34px; 
-	margin-bottom: 20px;
+	padding: 0.5em;
 }
 .new_resources {
 	border-left: 2px dashed;
 	border-color: $color1;
-	padding-left: 20px;
-	margin-bottom: 20px; 
-}
-.new_resources > p {
-	margin-bottom:20px; 
+	padding-left: 1em;
+	margin-bottom: 1em; 
 }
 .manageable {
-	margin-bottom:30px;
+	margin-top: 15px;
 }
-
-.manageable:last-child {
-	margin-bottom:0px;
-}
-.manageable td, .manageable th {
-	padding-bottom:10px;
+.manageable td {
+	padding-bottom:5px;
 	vertical-align: middle;
-}
-.manageable th {
-	font-size:24px;
-	text-align: left;
-	font-weight: bold;
-	text-decoration: none;
 }
 tr>:first-child {
 	color: $text2;
-	padding-right: 20px;
+	padding-right: 10px;
 }
 .manageable input, .manageable textarea, .manageable select {
 	font: inherit;
-	font-size:90%;
-	width: 350px;
+	width: 500px;
 }
-#resource_metadata {
-	width: 450px;
-	margin-left: 620px;
+#metadata {
+	width: 400px;
+	display: inline-block;
+	padding: 0.5em;
+}
+.metadata_table {
+	margin-bottom: 1em;
+	margin-left: 0.5em;
+	font-size: 0.9em;
 }
 #preview {
-	width: 600px;
-	height: 600px;
+	max-width: $preview_width;
+	max-height: $preview_height;
 	float: left;
+	margin-right: 0.5em;
 	overflow: hidden;
+	/*border: 1px solid $color1;*/
+}
+#preview img {
+	max-width: inherit;
+	max-height: inherit;
+}
+#preview iframe {
+	width: $preview_width;
+	height: $preview_height;;
 }
 .clearer {
-	clear:both;
+	clear: both;
 }
 .resource {
-	margin: 40px 0 0 0;
-}
-.resource p {
-	margin: 15px 0;
+	margin-bottom: 2em;
 }
 .resource .field_name {
 	color: $text2;
 }
 .resource > span {
 	display: inline-block;
-	padding-right: 30px;
+	padding-right: 2em;
 }
 .browse_tools {
-	text-align: center;
 	vertical-align: center;
-}
-#resource_metadata p {
-	margin: 20px 0;
-}
-#resource_metadata td {
-	padding: 10px 20px 10px 0;
-}
-#resource_metadata table {
-	margin: 10px 0;
-}
-.fb-comments {
-	margin: 20px 0;
+	margin-bottom: 1em;
 }
 ";
 
@@ -296,16 +282,17 @@ function render_top()
 '
 <div id="wrapper">
 <div id="header">
-	<h1><a href="redfeather.php"><span class="titlespan">'.$variables['header_text'][0].'</span>'.$variables['header_text'][1].'<img src="'. $variables['theme']['header_logo'].'"/></a></h1>
-	<h2>'.$variables['header_text'][2].'</h2>
-</div>
-<div id="content">';
+	<a href="'.$variables['rf_url'].'">
+		<h1><span class="titlespan">'.$variables['header_text'][0].'</span>'.$variables['header_text'][1].'</h1>
+		<h2>'.$variables['header_text'][2].'</h2>
+	</a>
+</div>';
 }
 
 function render_bottom()
 {
 	global $variables;
-	$variables['page'] .= '</div><div id="footer">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$_SERVER['SCRIPT_NAME'].'?page=manage_resources">Manage Resources</a></div></div>
+	$variables['page'] .= '<div id="footer">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$variables['rf_url'].'?page=manage_resources">Manage Resources</a></div></div>
 </html>';
 }
 
@@ -315,7 +302,7 @@ function render_browse()
 
 	$licenses = get_licenses();
 
-	$variables['page'] .= '<div class="browse_tools">
+	$variables['page'] .= '<div id="content"><div class="browse_tools">
 	Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
 	<script type="text/javascript">
 		function filter(){
@@ -328,55 +315,40 @@ function render_browse()
 			$(".resource:contains("+$("#filter").val()+")").show();
 		}
 	</script>
-	<a href="redfeather.php?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>
-	<a href="redfeather.php?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>
+	<a href="'.$variables['rf_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>
+	<a href="'.$variables['rf_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>
 </div>
 	';
 
 	$variables['page'] .= '<div class="browse_list">';
 	foreach($variables['data'] as $filename => $data)
 	{
-		$url = $_SERVER['SCRIPT_NAME']."?page=resource&file=".$filename;
-		$variables['page'] .= sprintf(<<<BLOCK
-<div class="resource">
-	<h2 class="resource_title"><a href="$url">%s</a></h2>
-	<p class="description">%s</p>
-	<span class="creator"><span class="field_name">Creator:</span><td> %s</span>
-	<span class="last_modified"><span class="field_name">Last Modified:</span> %s</span>
-	<span class="license"><span class="field_name">License:</span> %s</span>
-	<span class="download"><a href="$filename">Download</a></span>
-</div>
-BLOCK
-, $data['title'], $data['description'], $data['creator'], is_file($filename) ? date ('d F Y - H:i', filemtime($filename)) : 'unavailable', $licenses[$data['license']]); 
+		$url = $variables['rf_url']."?page=resource&file=$filename";
+		$variables['page'] .= "<div class='resource'>";
+		$variables['page'] .= "<h1 class='resource_title'><a href='$url'>{$data['title']}</a></h1>";
+		$variables['page'] .= "<p class='description'>{$data['description']}</p>";
+		$variables['page'] .= make_metadata_table($data);
+		$variables['page'] .= "</div>";
 	}
-	$variables['page'] .= '</div>';
+	$variables['page'] .= '</div></div>';
 }
 
 function render_resource()
 {
 	global $variables;
-	$licenses = get_licenses();
 	$data = $variables['data'][$_REQUEST['file']];	
 	$this_url = $variables["rf_url"].'?page=resource&file='.$_REQUEST['file'];
-	$bits = explode('/', $variables['rf_url']);
-	array_pop($bits);
-	$file_url = implode('/', $bits).'/'.$_REQUEST['file'];
-	$variables['page'] .= '<h1><a href="'.$data['filename'].'" target="_blank">'.$data['title'].'</a></h1>';
+	$file_url = $variables['base_url'].$_REQUEST['file'];
 
 	$variables['page'] .= '<div id="resource_main">';
 	
-	$variables['page'] .= '<iframe id="preview" src="http://docs.google.com/viewer?embedded=true&url='.urlencode($file_url).'"></iframe>';
-	$variables['page'] .= '<div id="resource_metadata">';
+	$variables['page'] .= '<div id="preview">'.make_preview($_REQUEST['file']).'</div>';
+	$variables['page'] .= '<div id="metadata">';
 
+	$variables['page'] .= '<h1>'.$data['title'].'</h1>';
 	$variables['page'] .= '<p>'.$data['description'].'</p>';
 
-	$variables['page'] .= '<table><tbody>';
-
-	$variables['page'] .= '<tr><td>Creator:</td><td>'.$data['creator'].' &lt;<a href="mailto:'.$data['email'].'">'.$data['email'].'</a>&gt;</td></tr>';
-	$variables['page'] .= '<tr><td>Updated:</td><td>'.date ("d F Y H:i:s.", filemtime($_REQUEST['file'])).'</td></tr>';
-	$variables['page'] .= '<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>';
-	$variables['page'] .= '<tr><td>Download:</td><td><a target="_blank" href="'.$file_url.'">'.$file_url.'</a></td></tr>';
-	$variables['page'] .= '</tbody></table>';
+	$variables['page'] .= make_metadata_table($data);
 
 	$variables['page'] .= '<div id="fb-root"></div>
 <script>(function(d, s, id) {
@@ -386,11 +358,35 @@ function render_resource()
   js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
   fjs.parentNode.insertBefore(js, fjs);
 }(document, "script", "facebook-jssdk"));</script>
-<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="450"></div>';
+<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="400"></div>';
 
 	$variables['page'] .= '</div>';
 
 	$variables['page'] .= '</div><div class="clearer"></div></div>';
+}
+
+function make_preview($filename)
+{
+	global $variables;
+	$file_url = $variables['base_url'].$filename;
+	if (getimagesize($filename))
+		return '<img src="'.$file_url.'">';
+	else 
+		return  '<iframe src="http://docs.google.com/viewer?embedded=true&url='.urlencode($file_url).'"></iframe>';
+}
+
+function make_metadata_table($data)
+{
+	global $variables;
+	$licenses = get_licenses();
+
+	$variables['page'] .= '<table class="metadata_table"><tbody>';
+	$variables['page'] .= '<tr><td>Creator:</td><td>'.$data['creator'].' &lt;<a href="mailto:'.$data['email'].'">'.$data['email'].'</a>&gt;</td></tr>';
+	$variables['page'] .= '<tr><td>Updated:</td><td>'.date ("d F Y H:i:s.", filemtime($data['filename'])).'</td></tr>';
+	$variables['page'] .= '<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>';
+	$variables['page'] .= '<tr><td>Download:</td><td><a target="_blank" href="'.$variables['base_url'].$data['filename'].'">'.$data['filename'].'</a></td></tr>';
+	$variables['page'] .= '</tbody></table>';
+
 
 }
 
@@ -441,7 +437,7 @@ function authenticate() {
 function render_manage_list()
 {
 	global $variables;
-	$variables['page'] .= '<h1>Manage Resources</h1>';
+	$variables['page'] .= '<div id="content"><h1>Manage Resources</h1>';
 
 	$dir = "./";
 
@@ -495,17 +491,17 @@ function render_manage_list()
 	$variables['page'] .= "<div>$manage_resources_html</div>";
 	$variables['page'] .= "<input type='hidden' name='resource_count' value='$num'/>";
 	$variables['page'] .= "<input type='submit' value='Save'/>";
-	$variables['page'] .= "</form>";
+	$variables['page'] .= "</form></div>";
 }
 
 
 function render_managed($data, $num)
 {
 	global $variables;
-	$item_html = "<table><tbody>";
-	$item_html .= "<tr><th colspan='2'><a href='".$data['filename']."' target='_blank'>".$data['filename']."</a></th></tr><input type='hidden' name='filename$num' value='".$data['filename']."' />";
+	$item_html = "<h1><a href='".$data['filename']."' target='_blank'>".$data['filename']."</a></h1><input type='hidden' name='filename$num' value='".$data['filename']."' />";
+	$item_html .= "<table><tbody>";
 	$item_html .= "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
-	$item_html .= "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='5'>".$data['description']."</textarea></td></tr>";
+	$item_html .= "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>";
 	$item_html .= "<tr><td>Creator</td><td><input name='creator$num' value='".$data['creator']."' autocomplete='off' /></td></tr>";
 	$item_html .= "<tr><td>Email</td><td><input name='email$num' value='".$data['email']."' autocomplete='off' /></td></tr>";
 
