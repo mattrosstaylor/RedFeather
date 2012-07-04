@@ -362,7 +362,7 @@ function render_resource()
 
 	$variables['page'] .= '</div>';
 
-	$variables['page'] .= '</div><div class="clearer"></div></div>';
+	$variables['page'] .= '<div class="clearer"></div></div>';
 }
 
 function make_preview($filename)
