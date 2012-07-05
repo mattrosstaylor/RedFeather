@@ -152,7 +152,6 @@ function stylesheet()
 body { 
 	font-family: $font;
 	font-size: 14px;
-	text-align: justify;
 	color: $text1;
 	background: $background;
 	line-height: 1.15;
@@ -164,6 +163,9 @@ body {
 h1 { 
 	font-size: 20px; 
 	font-weight:bold;
+}
+p {
+	text-align: justify;
 }
 p, h1 {
 	margin-bottom: 3px;
