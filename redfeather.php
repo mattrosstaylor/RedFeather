@@ -18,10 +18,9 @@ $variables['theme'] = array(
 $variables['default_metadata'] = array('title'=>'','description'=>'', 'creator'=>'','email'=>'', 'license'=>'');
 $variables['default_metadata'] = array('title'=>'','description'=>'', 'creator'=>'Matt R Taylor','email'=>'mrt@ecs.soton.ac.uk', 'license'=>'by-nd');
 
-
 //$variables['header_text'] = array('Green','Feather','Now with a custom name and colour scheme');$variables['theme'] = array('color1'=>'#1FAC1F', 'color2'=>'#D0F0D0','text1' => '#3F5F3F', 'text2'=>'#90A090', 'header_logo'=>'http://gallerywall.co.uk/shop/images/Green_Peacock_Feather.jpg', 'font'=>'serif', 'background'=>'');
 
-//$variables['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$variables['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
+$variables['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$variables['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
 
 
 //$variables['header_text'] = array('Derp','Feather','Herp herp derp derp derp!!');$variables['theme'] = array('color1'=>'cyan', 'color2'=>'magenta','text1' => 'yellow', 'text2'=>'#55FF55', 'header_logo' => 'http://images.sodahead.com/blogs/000200043/blogs_turkey_4946_822901_poll_xlarge.jpeg', 'background'=>'#daa', 'font'=>'"sans-serif');
@@ -31,7 +30,6 @@ $variables['default_metadata'] = array('title'=>'','description'=>'', 'creator'=
 $variables['rf_file'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
 $variables['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
 $variables['rf_url'] = $variables['base_url'].$variables['rf_file'];
-
 
 $variables['metadata_file'] = "rf_data.php";
 $variables['plugin_dir'] = "rf_plugins";
@@ -142,21 +140,27 @@ function stylesheet()
 	$color2 = $variables['theme']['color2'];
 	$background = $variables['theme']['background'];
 	$font = $variables['theme']['font'];
-	$preview_width = '720px';
+	$preview_width = '675px';
 	$preview_height = '520px';
 	return "
 body { 
 	font-family: $font;
+	font-size: 14px;
+	text-align: justify;
 	color: $text1;
 	background: $background;
 	line-height: 1.15;
 }
+.center {
+	width:1000px;
+	margin: auto;
+}
 h1 { 
-	font-size: 1.4em; 
+	font-size: 20px; 
 	font-weight:bold;
 }
 p, h1 {
-	margin-bottom: 0.25em;
+	margin-bottom: 3px;
 }
 a {
 	color: $color1;
@@ -169,15 +173,15 @@ a:hover, a:active {
 }
 #header {
 	background: $color2;
-	border-bottom: 2px solid $color1;
-	padding: 0.5em;
+	padding: 12px;
+	border-bottom: 1px solid $color1;
 }
 #header h1 {
-	font-size: 2.3em;
+	font-size: 28px;
 	margin-bottom: 0;
 }
 #header h2 {
-	font-size: 1.2em;
+	font-size: 14px;
 	font-style: italic;
 	color: $text2;
 }
@@ -189,52 +193,50 @@ a:hover, a:active {
 	color: $color1;
 }
 #footer {
-	padding: 0.5em; 
+	padding: 6px; 
 	background: $color2;
-	border-bottom: 2px solid $color1;
-	border-top: 2px solid $color1;
+	border-top: 1px solid $color1;
+	border-bottom: 1px solid $color1;
 }
 #content {
-	padding: 0.5em;
+	padding: 6px 0 6px 0;
 }
 .new_resources {
-	border-left: 2px dashed;
-	border-color: $color1;
-	padding-left: 1em;
-	margin-bottom: 1em; 
+	border-left: 1px dashed $color1;
+	padding-left: 6px;
+	margin-bottom: 6px; 
 }
 .manageable {
 	margin-top: 15px;
 }
 .manageable td {
-	padding-bottom:5px;
+	padding-bottom:12px;
 	vertical-align: middle;
 }
 tr>:first-child {
 	color: $text2;
-	padding-right: 10px;
+	padding-right: 12px;
 }
 .manageable input, .manageable textarea, .manageable select {
 	font: inherit;
 	width: 500px;
 }
 #metadata {
-	width: 400px;
-	display: inline-block;
-	padding: 0.5em;
+	width: 325px;
+	margin-left:6px;
+	float: right;
+	padding: 0;
 }
 .metadata_table {
-	margin-bottom: 1em;
-	margin-left: 0.5em;
-	font-size: 0.9em;
+	margin-bottom: 6px;
+	margin-left: 6px;
+	font-size: 12px;
 }
 #preview {
 	max-width: $preview_width;
 	max-height: $preview_height;
-	float: left;
-	margin-right: 0.5em;
 	overflow: hidden;
-	/*border: 1px solid $color1;*/
+	text-align: center;
 }
 #preview img {
 	max-width: inherit;
@@ -248,18 +250,14 @@ tr>:first-child {
 	clear: both;
 }
 .resource {
-	margin-bottom: 2em;
+	margin-bottom: 12px;
 }
 .resource .field_name {
 	color: $text2;
 }
-.resource > span {
-	display: inline-block;
-	padding-right: 2em;
-}
 .browse_tools {
 	vertical-align: center;
-	margin-bottom: 1em;
+	margin-bottom: 6px;
 }
 ";
 
@@ -280,20 +278,20 @@ function render_top()
 <body>';
 	$variables['page'] .=
 '
-<div id="wrapper">
-<div id="header">
+<div id="header"><div class="center">
 	<a href="'.$variables['rf_url'].'">
 		<h1><span class="titlespan">'.$variables['header_text'][0].'</span>'.$variables['header_text'][1].'</h1>
 		<h2>'.$variables['header_text'][2].'</h2>
 	</a>
-</div>';
+	</div>
+</div>
+<div class="center">';
 }
 
 function render_bottom()
 {
 	global $variables;
-	$variables['page'] .= '<div id="footer">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$variables['rf_url'].'?page=manage_resources">Manage Resources</a></div></div>
-</html>';
+	$variables['page'] .= '</div><div id="footer"><div class="center">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$variables['rf_url'].'?page=manage_resources">Manage Resources</a></div></div></html>';
 }
 
 function render_browse()
@@ -340,9 +338,9 @@ function render_resource()
 	$this_url = $variables["rf_url"].'?page=resource&file='.$_REQUEST['file'];
 	$file_url = $variables['base_url'].$_REQUEST['file'];
 
-	$variables['page'] .= '<div id="resource_main">';
+	$variables['page'] .= '<div id="content">';
 	
-	$variables['page'] .= '<div id="preview">'.make_preview($_REQUEST['file']).'</div>';
+	
 	$variables['page'] .= '<div id="metadata">';
 
 	$variables['page'] .= '<h1>'.$data['title'].'</h1>';
@@ -358,10 +356,11 @@ function render_resource()
   js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
   fjs.parentNode.insertBefore(js, fjs);
 }(document, "script", "facebook-jssdk"));</script>
-<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="400"></div>';
+<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="325"></div>';
 
 	$variables['page'] .= '</div>';
 
+	$variables['page'] .= '<div id="preview">'.make_preview($_REQUEST['file']).'</div>';
 	$variables['page'] .= '<div class="clearer"></div></div>';
 }
 
