@@ -240,7 +240,7 @@ tr>:first-child {
 }
 #preview {
 	width: $preview_width;
-	height: $preview_height;
+	max-height: $preview_height;
 	overflow: hidden;
 	text-align: center;
 }
@@ -355,9 +355,9 @@ function render_browse()
 function render_resource()
 {
 	global $variables;
-	$data = $variables['data'][$_REQUEST['file']];	
-	$this_url = $variables["rf_url"].'?page=resource&file='.$_REQUEST['file'];
-	$file_url = $variables['base_url'].$_REQUEST['file'];
+	$data = $variables['data'][$_REQUEST['file']];
+	$this_url = $variables["rf_url"].'?page=resource&file='.$data['filename'];
+	$file_url = $variables['base_url'].$data['filename'];
 
 	$variables['page'] .= '<div id="content">';
 	
@@ -381,7 +381,7 @@ function render_resource()
 
 	$variables['page'] .= '</div>';
 
-	$variables['page'] .= '<div id="preview">'.make_preview($_REQUEST['file'], $variables['size']['preview_width'], $variables['size']['preview_height']).'</div>';
+	$variables['page'] .= '<div id="preview">'.make_preview($data['filename'], $variables['size']['preview_width'], $variables['size']['preview_height']).'</div>';
 	$variables['page'] .= '<div class="clearer"></div></div>';
 }
 
@@ -392,7 +392,7 @@ function make_preview($filename, $width , $height)
 	$image_size = getimagesize($filename);
 	if ($image_size)
 	{
-		if ($width*$image_size[0] > $height*$image_size[1])
+		if ($width-$image_size[0] < $height-$image_size[1])
 			return "<img src='$file_url' width='$width'>";
 		else	
 			return "<img src='$file_url' height='$height'>";
