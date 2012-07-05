@@ -20,7 +20,7 @@ $variables['default_metadata'] = array('title'=>'','description'=>'', 'creator'=
 
 //$variables['header_text'] = array('Green','Feather','Now with a custom name and colour scheme');$variables['theme'] = array('color1'=>'#1FAC1F', 'color2'=>'#D0F0D0','text1' => '#3F5F3F', 'text2'=>'#90A090', 'header_logo'=>'http://gallerywall.co.uk/shop/images/Green_Peacock_Feather.jpg', 'font'=>'serif', 'background'=>'');
 
-$variables['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$variables['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
+//$variables['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$variables['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
 
 
 //$variables['header_text'] = array('Derp','Feather','Herp herp derp derp derp!!');$variables['theme'] = array('color1'=>'cyan', 'color2'=>'magenta','text1' => 'yellow', 'text2'=>'#55FF55', 'header_logo' => 'http://images.sodahead.com/blogs/000200043/blogs_turkey_4946_822901_poll_xlarge.jpeg', 'background'=>'#daa', 'font'=>'"sans-serif');
@@ -30,6 +30,8 @@ $variables['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibit
 $variables['rf_file'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
 $variables['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
 $variables['rf_url'] = $variables['base_url'].$variables['rf_file'];
+$variables['size'] = array('preview_width'=>680, 'preview_height'=>550, 'metadata_gap'=>15, 'metadata_width'=>300, 'manager_width'=>500);
+
 
 $variables['metadata_file'] = "rf_data.php";
 $variables['plugin_dir'] = "rf_plugins";
@@ -140,8 +142,12 @@ function stylesheet()
 	$color2 = $variables['theme']['color2'];
 	$background = $variables['theme']['background'];
 	$font = $variables['theme']['font'];
-	$preview_width = '675px';
-	$preview_height = '520px';
+	$manager_width = $variables['size']['manager_width']."px";
+	$preview_width = $variables['size']['preview_width']."px";
+	$preview_height = $variables['size']['preview_height']."px";
+	$metadata_width = $variables['size']['metadata_width']."px";
+	$metadata_gap = $variables['size']['metadata_gap']."px";
+	$page_width = $variables['size']['preview_width']+$variables['size']['metadata_gap']+$variables['size']['metadata_width']."px";
 	return "
 body { 
 	font-family: $font;
@@ -152,7 +158,7 @@ body {
 	line-height: 1.15;
 }
 .center {
-	width:1000px;
+	width: $page_width;
 	margin: auto;
 }
 h1 { 
@@ -219,13 +225,13 @@ tr>:first-child {
 }
 .manageable input, .manageable textarea, .manageable select {
 	font: inherit;
-	width: 500px;
+	width: $manager_width;
 }
 #metadata {
-	width: 325px;
-	margin-left:6px;
+	width: $metadata_width;
 	float: right;
-	padding: 0;
+	margin-left: $metadata_gap;
+	padding:0;
 }
 .metadata_table {
 	margin-bottom: 6px;
@@ -233,18 +239,25 @@ tr>:first-child {
 	font-size: 12px;
 }
 #preview {
-	max-width: $preview_width;
-	max-height: $preview_height;
+	width: $preview_width;
+	height: $preview_height;
 	overflow: hidden;
 	text-align: center;
 }
-#preview img {
-	max-width: inherit;
-	max-height: inherit;
-}
 #preview iframe {
-	width: $preview_width;
-	height: $preview_height;;
+	width: 100%;
+	height: 100%;
+}
+#preview .message {
+	display: none;
+	text-align: justify;
+}
+#preview.message_inserted iframe {
+	margin-top: -$preview_height;
+}
+#preview.message_inserted .message {
+	height: $preview_height;
+	display: block;
 }
 .clearer {
 	clear: both;
@@ -283,6 +296,14 @@ function render_top()
 		<h1><span class="titlespan">'.$variables['header_text'][0].'</span>'.$variables['header_text'][1].'</h1>
 		<h2>'.$variables['header_text'][2].'</h2>
 	</a>
+
+	<script type="text/javascript">
+		window.setTimeout("preview_fallback()", 3000);
+		function preview_fallback() {
+			var d = document.getElementById("preview");
+			d.className = d.className + " message_inserted";
+		}
+	</script>
 	</div>
 </div>
 <div class="center">';
@@ -356,22 +377,60 @@ function render_resource()
   js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
   fjs.parentNode.insertBefore(js, fjs);
 }(document, "script", "facebook-jssdk"));</script>
-<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="325"></div>';
+<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$variables['size']['metadata_width'].'"></div>';
 
 	$variables['page'] .= '</div>';
 
-	$variables['page'] .= '<div id="preview">'.make_preview($_REQUEST['file']).'</div>';
+	$variables['page'] .= '<div id="preview">'.make_preview($_REQUEST['file'], $variables['size']['preview_width'], $variables['size']['preview_height']).'</div>';
 	$variables['page'] .= '<div class="clearer"></div></div>';
 }
 
-function make_preview($filename)
+function make_preview($filename, $width , $height)
 {
 	global $variables;
 	$file_url = $variables['base_url'].$filename;
-	if (getimagesize($filename))
-		return '<img src="'.$file_url.'">';
-	else 
-		return  '<iframe src="http://docs.google.com/viewer?embedded=true&url='.urlencode($file_url).'"></iframe>';
+	$image_size = getimagesize($filename);
+	if ($image_size)
+	{
+		if ($width*$image_size[0] > $height*$image_size[1])
+			return "<img src='$file_url' width='$width'>";
+		else	
+			return "<img src='$file_url' height='$height'>";
+	}
+	else
+	{
+		if (isDomainAvailable('http://docs.google.com/viewer') == false)
+		{
+			return "<div class='message'><h1>Preview unavailable.</h1><p>The Google docs viewer appears to be inaccessible.</p></div>";
+		}
+		$error_fallback = "<div class='message'><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>";
+		return $error_fallback.'<iframe src="http://docs.google.com/viewer?embedded=true&url='.urlencode($file_url).'"></iframe>';
+	}
+}
+
+function isDomainAvailable($domain)
+{
+               //check, if a valid url is provided
+               if(!filter_var($domain, FILTER_VALIDATE_URL))
+               {
+                       return false;
+               }
+
+               //initialize curl
+               $curlInit = curl_init($domain);
+               curl_setopt($curlInit,CURLOPT_CONNECTTIMEOUT,10);
+               curl_setopt($curlInit,CURLOPT_HEADER,true);
+               curl_setopt($curlInit,CURLOPT_NOBODY,true);
+               curl_setopt($curlInit,CURLOPT_RETURNTRANSFER,true);
+
+               //get answer
+               $response = curl_exec($curlInit);
+
+               curl_close($curlInit);
+
+               if ($response) return true;
+
+               return false;
 }
 
 function make_metadata_table($data)
@@ -385,8 +444,6 @@ function make_metadata_table($data)
 	$variables['page'] .= '<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>';
 	$variables['page'] .= '<tr><td>Download:</td><td><a target="_blank" href="'.$variables['base_url'].$data['filename'].'">'.$data['filename'].'</a></td></tr>';
 	$variables['page'] .= '</tbody></table>';
-
-
 }
 
 function get_licenses()
