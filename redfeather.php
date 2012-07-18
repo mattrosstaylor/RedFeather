@@ -75,7 +75,7 @@ else
 	call('resource');
 
 // output the page html
-print $PAGE;
+print preg_replace('/\s+/', ' ',$PAGE);
 
 
 // FUNCTIONS FROM HERE ON DOWN
@@ -290,10 +290,7 @@ function render_top()
 	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 	<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
 	<style type="text/css">'.generate_stylesheet().'</style>
-</head>
-<body>';
-	$PAGE .=
-'
+</head><body>
 <div id="header"><div class="center">
 	<a href="'.$VAR['rf_url'].'">
 		<h1><span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'</h1>
@@ -307,8 +304,7 @@ function render_top()
 			d.className = d.className + " message_inserted";
 		}
 	</script>
-	</div>
-</div>
+</div></div>
 <div class="center">';
 }
 
@@ -324,7 +320,8 @@ function render_browse()
 
 	$licenses = get_licenses();
 
-	$PAGE .= '<div id="content"><div class="browse_tools">
+	$PAGE .=
+'<div id="content"><div class="browse_tools">
 	Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
 	<script type="text/javascript">
 		function filter(){
@@ -339,18 +336,18 @@ function render_browse()
 	</script>
 	<a href="'.$VAR['rf_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>
 	<a href="'.$VAR['rf_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>
-</div>
-	';
+</div>';
 
 	$PAGE .= '<div class="browse_list">';
 	foreach($VAR['data'] as $filename => $data)
 	{
 		$url = $VAR['rf_url']."?page=resource&file=$filename";
-		$PAGE .= "<div class='resource'>";
-		$PAGE .= "<h1><a href='$url'>{$data['title']}</a></h1>";
-		$PAGE .= "<p>{$data['description']}</p>";
-		$PAGE .= generate_metadata_table($data);
-		$PAGE .= "</div>";
+		$PAGE .= 
+"<div class='resource'>
+	<h1><a href='$url'>{$data['title']}</a></h1>
+	<p>{$data['description']}</p>
+	".generate_metadata_table($data)."
+</div>";
 	}
 	$PAGE .= '</div></div>';
 }
@@ -362,30 +359,25 @@ function render_resource()
 	$this_url = $VAR["rf_url"].'?page=resource&file='.$data['filename'];
 	$file_url = $VAR['base_url'].$data['filename'];
 
-	$PAGE .= '<div id="content">';
-	
-	
-	$PAGE .= '<div class="metadata">';
-
-	$PAGE .= '<h1>'.$data['title'].'</h1>';
-	$PAGE .= '<p>'.$data['description'].'</p>';
-
-	$PAGE .= generate_metadata_table($data);
-
-	$PAGE .= '<div id="fb-root"></div>
-<script>(function(d, s, id) {
-  var js, fjs = d.getElementsByTagName(s)[0];
-  if (d.getElementById(id)) return;
-  js = d.createElement(s); js.id = id;
-  js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
-  fjs.parentNode.insertBefore(js, fjs);
-}(document, "script", "facebook-jssdk"));</script>
-<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['size']['metadata_width'].'"></div>';
-
-	$PAGE .= '</div>';
-
-	$PAGE .= '<div id="preview">'.generate_preview($data['filename'], $VAR['size']['preview_width'], $VAR['size']['preview_height']).'</div>';
-	$PAGE .= '<div class="clearer"></div></div>';
+	$PAGE .=
+'<div id="content">
+	<div class="metadata">
+		<h1>'.$data['title'].'</h1>
+		<p>'.$data['description'].'</p>
+		'.generate_metadata_table($data).'
+		<div id="fb-root"></div><script>
+			(function(d, s, id) {
+				var js, fjs = d.getElementsByTagName(s)[0];
+				if (d.getElementById(id)) return;
+				js = d.createElement(s); js.id = id;
+				js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
+				fjs.parentNode.insertBefore(js, fjs);
+			}(document, "script", "facebook-jssdk"));</script>
+			<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['size']['metadata_width'].'"></div>
+	</div>
+	<div id="preview">'.generate_preview($data['filename'], $VAR['size']['preview_width'], $VAR['size']['preview_height']).'</div>
+	<div class="clearer"></div>
+</div>';
 }
 
 function generate_preview($filename, $width , $height)
@@ -440,12 +432,13 @@ function generate_metadata_table($data)
 {
 	global $VAR;
 	$licenses = get_licenses();
-	$table = '<table class="metadata_table"><tbody>';
-	$table .= '<tr><td>Creator:</td><td>'.$data['creator'].' &lt;<a href="mailto:'.$data['email'].'">'.$data['email'].'</a>&gt;</td></tr>';
-	$table .= '<tr><td>Updated:</td><td>'.date ("d F Y H:i:s.", filemtime($data['filename'])).'</td></tr>';
-	$table .= '<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>';
-	$table .= '<tr><td>Download:</td><td><a target="_blank" href="'.$VAR['base_url'].$data['filename'].'">'.$data['filename'].'</a></td></tr>';
-	$table .= '</tbody></table>';
+	$table = 
+'<table class="metadata_table"><tbody>
+	<tr><td>Creator:</td><td>'.$data['creator'].' &lt;<a href="mailto:'.$data['email'].'">'.$data['email'].'</a>&gt;</td></tr>
+	<tr><td>Updated:</td><td>'.date ("d F Y H:i:s.", filemtime($data['filename'])).'</td></tr>
+	<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>
+	<tr><td>Download:</td><td><a target="_blank" href="'.$VAR['base_url'].$data['filename'].'">'.$data['filename'].'</a></td></tr>
+</tbody></table>';
 	return $table;
 }
 
@@ -482,11 +475,12 @@ function authenticate() {
 	
 	call_user_func('render_top');
 
-	$PAGE .= '<form method="post" action="'.$VAR['rf_file'].'?'.$_SERVER['QUERY_STRING'].'">
+	$PAGE .=
+'<form method="post" action="'.$VAR['rf_file'].'?'.$_SERVER['QUERY_STRING'].'">
 	Username: <input type="text" name="username" />
 	Password: <input type="password" name="password" />
 	<input type="submit" value="Login" />
-	</form>';
+</form>';
 	call_user_func('render_bottom');
 
 	print $PAGE;
@@ -557,12 +551,14 @@ function render_manage_list()
 function generate_manageable_item($data, $num)
 {
 	global $VAR;
-	$item_html = "<h1><a href='".$data['filename']."' target='_blank'>".$data['filename']."</a></h1><input type='hidden' name='filename$num' value='".$data['filename']."' />";
-	$item_html .= "<table><tbody>";
-	$item_html .= "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
-	$item_html .= "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>";
-	$item_html .= "<tr><td>Creator</td><td><input name='creator$num' value='".$data['creator']."' autocomplete='off' /></td></tr>";
-	$item_html .= "<tr><td>Email</td><td><input name='email$num' value='".$data['email']."' autocomplete='off' /></td></tr>";
+	$item_html =
+"<h1><a href='".$data['filename']."' target='_blank'>".$data['filename']."</a></h1>
+<input type='hidden' name='filename$num' value='".$data['filename']."' />
+<table><tbody>
+	<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>
+	<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>
+	<tr><td>Creator</td><td><input name='creator$num' value='".$data['creator']."' autocomplete='off' /></td></tr>
+	<tr><td>Email</td><td><input name='email$num' value='".$data['email']."' autocomplete='off' /></td></tr>";
 
 	$license_options = "";
 	foreach (get_licenses() as $key => $value)	
