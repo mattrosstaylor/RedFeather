@@ -16,22 +16,22 @@ $VAR['theme'] = array(
 	'font'=>'sans-serif',
 	'background'=>'',
 );
-$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creator'=>'','email'=>'', 'license'=>'');
-$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creator'=>'Matt R Taylor','email'=>'mrt@ecs.soton.ac.uk', 'license'=>'by-nd');
+$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array(),'emails'=>array(), 'license'=>'');
+$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array('Matt R Taylor'),'emails'=>array('mrt@ecs.soton.ac.uk'), 'license'=>'by-nd');
 
 //$VAR['header_text'] = array('Green','Feather','Now with a custom name and colour scheme');$VAR['theme'] = array('color1'=>'#1FAC1F', 'color2'=>'#D0F0D0','text1' => '#3F5F3F', 'text2'=>'#90A090', 'header_logo'=>'http://gallerywall.co.uk/shop/images/Green_Peacock_Feather.jpg', 'font'=>'serif', 'background'=>'');
 
 //$VAR['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$VAR['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
 
 
-//$VAR['header_text'] = array('Derp','Feather','Herp herp derp derp derp!!');$VAR['theme'] = array('color1'=>'cyan', 'color2'=>'magenta','text1' => 'yellow', 'text2'=>'#55FF55', 'header_logo' => 'http://images.sodahead.com/blogs/000200043/blogs_turkey_4946_822901_poll_xlarge.jpeg', 'background'=>'#daa', 'font'=>'"sans-serif');
+//$VAR['header_text'] = array('Derp','Feather','Herp herp derp derp derp!!');$VAR['theme'] = array('color1'=>'cyan', 'color2'=>'magenta','text1' => 'yellow', 'text2'=>'#55FF55', 'header_logo' => 'http://images.sodahead.com/blogs/000200043/blogs_turkey_4946_822901_poll_xlarge.jpeg', 'background'=>'#daa', 'font'=>'sans-serif');
 
 
 // set system variables
 $VAR['rf_file'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
 $VAR['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
 $VAR['rf_url'] = $VAR['base_url'].$VAR['rf_file'];
-$VAR['size'] = array('preview_width'=>680, 'preview_height'=>550, 'metadata_gap'=>15, 'metadata_width'=>300, 'manager_width'=>500);
+$VAR['size'] = array('preview_width'=>680, 'preview_height'=>550, 'metadata_gap'=>15, 'metadata_width'=>300, 'manager_width'=>600);
 
 
 $VAR['metadata_file'] = "rf_data.php";
@@ -226,9 +226,23 @@ tr>:first-child {
 	color: $text2;
 	padding-right: 12px;
 }
+.manageable tr>:nth-child(2) {
+	width: $manager_width;
+}
 .manageable input, .manageable textarea, .manageable select {
 	font: inherit;
-	width: $manager_width;
+	width: 100%;
+}
+.creators th {
+	color: $text2;
+}
+.creators td {
+	width: 45%;
+	padding-bottom: 6px;
+}
+.creators tr >:nth-child(3) {
+	width: 10%;
+	text-align: right;
 }
 .metadata {
 	width: $metadata_width;
@@ -248,8 +262,8 @@ tr>:first-child {
 	text-align: center;
 }
 #preview iframe {
-	width: 100%;
-	height: 100%;
+	width: $preview_width;
+	height: $preview_height;
 }
 #preview .message {
 	display: none;
@@ -302,6 +316,13 @@ function render_top()
 		function preview_fallback() {
 			var d = document.getElementById("preview");
 			d.className = d.className + " message_inserted";
+		}
+
+		function add_creator($num) {
+			var creators = $("#creators" +$num);
+			var addcreator = $("#addcreator" +$num);
+			creators.append("<tr><td><input name=\'creators" +$num +"[]\' autocomplete=\'off\' /></td><td><input name=\'emails" +$num +"[]\' autocomplete=\'off\' /></td><td><a href=\'#\' onclick=\'javascript:$(this).parent().parent().remove(); return false;\'>remove</a></td></tr>");
+			addcreator.remove().appendTo(creators);
 		}
 	</script>
 </div></div>
@@ -432,13 +453,20 @@ function generate_metadata_table($data)
 {
 	global $VAR;
 	$licenses = get_licenses();
-	$table = 
-'<table class="metadata_table"><tbody>
-	<tr><td>Creator:</td><td>'.$data['creator'].' &lt;<a href="mailto:'.$data['email'].'">'.$data['email'].'</a>&gt;</td></tr>
-	<tr><td>Updated:</td><td>'.date ("d F Y H:i:s.", filemtime($data['filename'])).'</td></tr>
-	<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>
-	<tr><td>Download:</td><td><a target="_blank" href="'.$VAR['base_url'].$data['filename'].'">'.$data['filename'].'</a></td></tr>
-</tbody></table>';
+	$table = '<table class="metadata_table"><tbody>';
+
+	if (isset($data['creators']))
+	{
+		$table .= '<tr><td>Creator' .((sizeof($data['creators'])>1) ? 's': '').':</td><td>';
+		for ($i = 0; $i < sizeof($data['creators']); $i++)
+			$table .= '<a href="mailto:'.$data['emails'][$i].'">'.$data['creators'][$i].'</a><br/>';
+		$table .= '</td></tr>';
+	}
+	$table .='
+		<tr><td>Updated:</td><td>'.date ("d F Y H:i:s.", filemtime($data['filename'])).'</td></tr>
+		<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>
+		<tr><td>Download:</td><td><a target="_blank" href="'.$VAR['base_url'].$data['filename'].'">'.$data['filename'].'</a></td></tr>
+	</tbody></table>';
 	return $table;
 }
 
@@ -532,7 +560,7 @@ function render_manage_list()
 	foreach ($VAR['data'] as $key => $value) {
 		if (! in_array($key, $files_found_list))
 		{
-			$missing_resources_html .= "<div class='manageable' id='missing$missing_num'><p>Resource not found: $key <a href='#' onclick='javascript:$(\"#missing$missing_num\").remove();'>delete metadata</a></p><input type='hidden' name='missing[]' value='$key'/></div>";
+			$missing_resources_html .= "<div class='manageable' id='missing$missing_num'><p>Resource not found: $key <a href='#' onclick='javascript:$(\"#missing$missing_num\").remove();return false;'>delete metadata</a></p><input type='hidden' name='missing[]' value='$key'/></div>";
 			$missing_num++;
 		}
 	}
@@ -551,14 +579,32 @@ function render_manage_list()
 function generate_manageable_item($data, $num)
 {
 	global $VAR;
-	$item_html =
-"<h1><a href='".$data['filename']."' target='_blank'>".$data['filename']."</a></h1>
+	$item_html = "
+<h1><a href='".$data['filename']."' target='_blank'>".$data['filename']."</a></h1>
 <input type='hidden' name='filename$num' value='".$data['filename']."' />
-<table><tbody>
+<table>
 	<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>
 	<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>
-	<tr><td>Creator</td><td><input name='creator$num' value='".$data['creator']."' autocomplete='off' /></td></tr>
-	<tr><td>Email</td><td><input name='email$num' value='".$data['email']."' autocomplete='off' /></td></tr>";
+	<tr><td>Creators</td><td>
+		<table id='creators$num' class='creators'><tr><th>Name</th><th>Email</th><th/></tr>";
+
+	if (isset($data['creators']))
+	for ($i = 0; $i < sizeof($data['creators']); $i++)
+	{
+		$item_html .= "
+			<tr>
+				<td><input name='creators".$num."[]' value='".$data['creators'][$i]."' autocomplete='off' /></td>
+				<td><input name='emails".$num."[]' value='".$data['emails'][$i]."' autocomplete='off' /></td>
+				<td><a href='#' onclick='javascript:$(this).parent().parent().remove(); return false;'>remove</a></td>
+			</tr>";
+
+	}
+	$item_html .= "
+	<tr id='addcreator$num'>
+		<td><a creator$num' href='#' onclick='javascript:add_creator($num);return false;'>add new creator</a></td>
+	</tr>
+</table>
+";
 
 	$license_options = "";
 	foreach (get_licenses() as $key => $value)	
@@ -572,7 +618,7 @@ function generate_manageable_item($data, $num)
 	}
 
 	$item_html .= "<tr><td class='table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
-	$item_html .= "</tbody></table>";
+	$item_html .= "</table>";
 
 	return $item_html;
 }
