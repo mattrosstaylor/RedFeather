@@ -100,6 +100,39 @@ function call_back_list($function_name, $list=NULL)
 	$functions[$function_name] = $list;
 }
 
+function get_file_list()
+{
+	global $VAR;
+	$file_list = array();
+	$dir = "./";
+	foreach (scandir($dir) as $file)
+	{
+		if(is_dir($dir.$file)) continue;
+		if($file == $VAR['rf_file']) continue;
+		if($file == $VAR['metadata_file']) continue;
+		if(preg_match("/^\./", $file)) continue;
+		array_push($file_list, $file);
+	}
+	return $file_list;
+}
+
+function get_file_link($filename)
+{
+	global $VAR;
+	return $VAR['base_url'].$filename;
+}
+
+function get_file_date($filename)
+{
+	return date ("d F Y H:i:s.", filemtime($filename));
+}
+
+function get_image_size($filename)
+{
+	return getimagesize($filename);
+}
+
+
 function load_data()
 {
 	global $VAR;
@@ -121,7 +154,7 @@ function save_data()
 
 		foreach ($_REQUEST as $key => $value)
 			if (preg_match("/(.*)($i\$)/", $key, $matches))
-				$VAR["data"][$filename][$matches[1]] = $value;
+				$VAR['data'][$filename][$matches[1]] = $value;
 	}
 
 	if (isset($_REQUEST['missing']))
@@ -293,7 +326,6 @@ tr>:first-child {
 
 }
 
-
 function render_top()
 {
 	global $VAR, $PAGE;
@@ -360,8 +392,9 @@ function render_browse()
 </div>';
 
 	$PAGE .= '<div class="browse_list">';
-	foreach($VAR['data'] as $filename => $data)
+	foreach(get_file_list() as $filename)
 	{
+		$data = $VAR['data'][$filename];
 		$url = $VAR['rf_url']."?page=resource&file=$filename";
 		$PAGE .= 
 "<div class='resource'>
@@ -378,7 +411,7 @@ function render_resource()
 	global $VAR, $PAGE;
 	$data = $VAR['data'][$_REQUEST['file']];
 	$this_url = $VAR["rf_url"].'?page=resource&file='.$data['filename'];
-	$file_url = $VAR['base_url'].$data['filename'];
+	$file_url = get_file_link($data['filename']); 
 
 	$PAGE .=
 '<div id="content">
@@ -404,8 +437,8 @@ function render_resource()
 function generate_preview($filename, $width , $height)
 {
 	global $VAR;
-	$file_url = $VAR['base_url'].$filename;
-	$image_size = getimagesize($filename);
+	$file_url = get_file_link($filename);
+	$image_size = get_image_size($filename);
 	if ($image_size)
 	{
 		if ($width-$image_size[0] < $height-$image_size[1])
@@ -463,9 +496,9 @@ function generate_metadata_table($data)
 		$table .= '</td></tr>';
 	}
 	$table .='
-		<tr><td>Updated:</td><td>'.date ("d F Y H:i:s.", filemtime($data['filename'])).'</td></tr>
+		<tr><td>Updated:</td><td>'.get_file_date($data['filename']).'</td></tr>
 		<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>
-		<tr><td>Download:</td><td><a target="_blank" href="'.$VAR['base_url'].$data['filename'].'">'.$data['filename'].'</a></td></tr>
+		<tr><td>Download:</td><td><a target="_blank" href="'.get_file_link($data['filename']).'">'.$data['filename'].'</a></td></tr>
 	</tbody></table>';
 	return $table;
 }
@@ -520,32 +553,26 @@ function render_manage_list()
 	global $VAR, $PAGE;
 	$PAGE .= '<div id="content"><h1>Manage Resources</h1>';
 
-	$dir = "./";
 
 	$new_file_count = 0;
 	$num = 0;
 	$manage_resources_html = '';
 	$new_resources_html = '';
 	$files_found_list = array();
-		
 	$PAGE .= "<form action='".$VAR['rf_file']."?page=save_resources' method='POST'>\n";
-	foreach (scandir($dir) as $file)
+	
+	foreach (get_file_list() as $filename)
 	{
-		if(is_dir($dir.$file)) continue;
-		if($file == $VAR['rf_file']) continue;
-		if($file == $VAR['metadata_file']) continue;
-		if(preg_match("/^\./", $file)) continue;
-
-		if (isset($VAR['data'][$file])) {
-			$data = $VAR['data'][$file];
-			array_push($files_found_list, $file);
+		if (isset($VAR['data'][$filename])) {
+			$data = $VAR['data'][$filename];
+			array_push($files_found_list, $filename);
 			$manage_resources_html .= "<div class='manageable' id='resource$num'>".generate_manageable_item($data, $num)."</div>";
 		}
 		else
 		{
 			//the default data for the workflow
 			$data = $VAR['default_metadata'];
-			$data['filename'] = $file;
+			$data['filename'] = $filename;
 			$new_resources_html .= "<div class='manageable' id='resource$num'>".generate_manageable_item($data, $num)."</div>";
 			$new_file_count++;
 		}
@@ -580,7 +607,7 @@ function generate_manageable_item($data, $num)
 {
 	global $VAR;
 	$item_html = "
-<h1><a href='".$data['filename']."' target='_blank'>".$data['filename']."</a></h1>
+<h1><a href='".get_file_link($data['filename'])."' target='_blank'>".$data['filename']."</a></h1>
 <input type='hidden' name='filename$num' value='".$data['filename']."' />
 <table>
 	<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>
@@ -637,16 +664,14 @@ function render_rss() {
     <description></description>
     <language>en</language>
 ';
-        foreach($VAR['data'] as $file => $data)
-        {
-                if(!$data['title']) { continue; }
-                $resource_url = htmlentities($VAR['rf_url'].'?page=resource&file='.$file);
+        foreach(get_file_list() as $filename)
+	{
+		$data = $VAR['data'][$filename];
+               
+		if(!$data['title']) { continue; }
+                $resource_url = htmlentities($VAR['rf_url'].'?page=resource&file='.$filename);
                 print '<item><pubDate>';
-                $mtime = "";
-                if(is_file($file)){
-                        $mtime = filemtime($file);
-                }
-                print date ("d M Y H:i:s O", $mtime);
+                print get_file_date($filename);
                 print '</pubDate>
   <title>'.htmlentities($data['title']).'</title>
   <link>'.$resource_url.'</link>
