@@ -16,16 +16,10 @@ $VAR['theme'] = array(
 	'font'=>'sans-serif',
 	'background'=>'',
 );
-$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array(),'emails'=>array(), 'license'=>'');
-$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array('Matt R Taylor'),'emails'=>array('mrt@ecs.soton.ac.uk'), 'license'=>'by-nd');
-
-//$VAR['header_text'] = array('Green','Feather','Now with a custom name and colour scheme');$VAR['theme'] = array('color1'=>'#1FAC1F', 'color2'=>'#D0F0D0','text1' => '#3F5F3F', 'text2'=>'#90A090', 'header_logo'=>'http://gallerywall.co.uk/shop/images/Green_Peacock_Feather.jpg', 'font'=>'serif', 'background'=>'');
+$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array(''),'emails'=>array(''), 'license'=>'');
 
 //$VAR['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$VAR['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
-
-
-//$VAR['header_text'] = array('Derp','Feather','Herp herp derp derp derp!!');$VAR['theme'] = array('color1'=>'cyan', 'color2'=>'magenta','text1' => 'yellow', 'text2'=>'#55FF55', 'header_logo' => 'http://images.sodahead.com/blogs/000200043/blogs_turkey_4946_822901_poll_xlarge.jpeg', 'background'=>'#daa', 'font'=>'sans-serif');
-
+//$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array('Matt R Taylor'),'emails'=>array('mrt@ecs.soton.ac.uk'), 'license'=>'by-nd');
 
 // set system variables
 $VAR['rf_file'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
@@ -33,12 +27,8 @@ $VAR['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'
 $VAR['rf_url'] = $VAR['base_url'].$VAR['rf_file'];
 $VAR['size'] = array('preview_width'=>680, 'preview_height'=>550, 'metadata_gap'=>15, 'metadata_width'=>300, 'manager_width'=>600);
 
-
 $VAR['metadata_file'] = "rf_data.php";
 $VAR['plugin_dir'] = "rf_plugins";
-
-// ensures that the metadata file exists
-touch($VAR['metadata_file']);
 
 // function storage
 $functions = array();
@@ -54,7 +44,6 @@ call_back_list("rdf", array( 'load_data', 'render_rdf' ) );
 
 // set the default page to browse
 if(!isset($_REQUEST['page'])) $_REQUEST['page'] = "browse";
-
 
 // load the plugins
 if(is_dir($VAR['plugin_dir']))
@@ -459,27 +448,29 @@ function generate_preview($filename, $width , $height)
 
 function isDomainAvailable($domain)
 {
-               //check, if a valid url is provided
-               if(!filter_var($domain, FILTER_VALIDATE_URL))
-               {
-                       return false;
-               }
+	// this code is currently not php 4 compliant.
+	return true;
 
-               //initialize curl
-               $curlInit = curl_init($domain);
-               curl_setopt($curlInit,CURLOPT_CONNECTTIMEOUT,10);
-               curl_setopt($curlInit,CURLOPT_HEADER,true);
-               curl_setopt($curlInit,CURLOPT_NOBODY,true);
-               curl_setopt($curlInit,CURLOPT_RETURNTRANSFER,true);
+	//check, if a valid url is provided
+	if(!filter_var($domain, FILTER_VALIDATE_URL))
+	{
+		return false;
+	}
 
-               //get answer
-               $response = curl_exec($curlInit);
+	//initialize curl
+	$curlInit = curl_init($domain);
+	curl_setopt($curlInit,CURLOPT_CONNECTTIMEOUT,10);
+	curl_setopt($curlInit,CURLOPT_HEADER,true);
+ 	curl_setopt($curlInit,CURLOPT_NOBODY,true);
+	curl_setopt($curlInit,CURLOPT_RETURNTRANSFER,true);
 
-               curl_close($curlInit);
+	//get answer
+	$response = curl_exec($curlInit);
+	curl_close($curlInit);
 
-               if ($response) return true;
+	if ($response) return true;
 
-               return false;
+	return false;
 }
 
 function generate_metadata_table($data)
