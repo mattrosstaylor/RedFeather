@@ -389,6 +389,7 @@ function render_browse()
 	$PAGE .= '<div class="browse_list">';
 	foreach(get_file_list() as $filename)
 	{
+		if (!isset($VAR['data'][$filename])) continue;
 		$data = $VAR['data'][$filename];
 		$url = $VAR['rf_url']."?file=$filename";
 		$PAGE .= 
@@ -669,9 +670,9 @@ function render_rss() {
 ';
         foreach(get_file_list() as $filename)
 	{
+		if (!isset($VAR['data'][$filename])) continue;
 		$data = $VAR['data'][$filename];
                
-		if(!$data['title']) { continue; }
                 $resource_url = htmlentities($VAR['rf_url'].'?file='.$filename);
                 print '<item><pubDate>';
                 print get_file_date($filename);
