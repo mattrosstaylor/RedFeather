@@ -8,9 +8,10 @@ $PAGE = '';
 // use variables
 $VAR['users'] = array('admin'=>'shoes');
 $VAR['header_text'] = array('Red','Feather','Lightweight Resource Exhibition and Discovery');
+//$VAR['return_link'] = array('text'=>'return to site >', 'href'=>'http://www.example.com');
 $VAR['theme'] = array(
-	'color1'=>'#AC1F1F',
-	'color2'=>'#F0D0D0',
+	'linkcolor'=>'#AC1F1F',
+	'bannercolor'=>'#F0D0D0',
 	'text1'=>'black',
 	'text2'=>'#606060',
 	'font'=>'sans-serif',
@@ -18,7 +19,7 @@ $VAR['theme'] = array(
 );
 $VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array(''),'emails'=>array(''), 'license'=>'');
 
-//$VAR['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$VAR['theme'] = array('color1'=>'#1F1FAC', 'color2'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
+//$VAR['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$VAR['theme'] = array('linkcolor'=>'#1F1FAC', 'bannercolor'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
 //$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array('Matt R Taylor'),'emails'=>array('mrt@ecs.soton.ac.uk'), 'license'=>'by-nd');
 
 // set system variables
@@ -161,8 +162,8 @@ function generate_stylesheet()
 	global $VAR;
 	$text1 = $VAR['theme']['text1'];
 	$text2 = $VAR['theme']['text2'];
-	$color1 = $VAR['theme']['color1'];
-	$color2 = $VAR['theme']['color2'];
+	$linkcolor = $VAR['theme']['linkcolor'];
+	$bannercolor = $VAR['theme']['bannercolor'];
 	$background = $VAR['theme']['background'];
 	$font = $VAR['theme']['font'];
 	$manager_width = $VAR['size']['manager_width']."px";
@@ -194,7 +195,7 @@ p, h1 {
 	margin-bottom: 3px;
 }
 a {
-	color: $color1;
+	color: $linkcolor;
 }
 a:link, a:visited {
 	text-decoration: none;
@@ -203,9 +204,9 @@ a:hover, a:active {
 	text-decoration: underline;
 }
 #header {
-	background: $color2;
+	background: $bannercolor;
 	padding: 12px;
-	border-bottom: 1px solid $color1;
+	border-bottom: 1px solid $linkcolor;
 }
 #header h1 {
 	font-size: 28px;
@@ -216,24 +217,24 @@ a:hover, a:active {
 	font-style: italic;
 	color: $text2;
 }
-#header a {
+#header h1 > a {
 	color:inherit;
 	text-decoration: none;
 }
 .titlespan {
-	color: $color1;
+	color: $linkcolor;
 }
 #footer {
 	padding: 6px; 
-	background: $color2;
-	border-top: 1px solid $color1;
-	border-bottom: 1px solid $color1;
+	background: $bannercolor;
+	border-top: 1px solid $linkcolor;
+	border-bottom: 1px solid $linkcolor;
 }
 #content {
 	padding: 6px 0 6px 0;
 }
 .new_resources {
-	border-left: 1px dashed $color1;
+	border-left: 1px dashed $linkcolor;
 	padding-left: 6px;
 	margin-bottom: 6px; 
 }
@@ -325,15 +326,8 @@ function render_top()
 	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 	<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
 	<style type="text/css">'.generate_stylesheet().'</style>
-</head><body>
-<div id="header"><div class="center">
-	<a href="'.$VAR['rf_url'].'">
-		<h1><span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'</h1>
-		<h2>'.$VAR['header_text'][2].'</h2>
-	</a>
-
 	<script type="text/javascript">
-		window.setTimeout("preview_fallback()", 3000);
+		window.setTimeout("preview_fallback()", 10000);
 		function preview_fallback() {
 			var d = document.getElementById("preview");
 			d.className = d.className + " message_inserted";
@@ -346,7 +340,19 @@ function render_top()
 			addcreator.remove().appendTo(creators);
 		}
 	</script>
-</div></div>
+
+</head><body>
+<div id="header"><div class="center">
+	<h1><a href="'.$VAR['rf_url'].'">
+		<span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'
+	</a></h1>';
+
+	if (isset($VAR['return_link']))
+		$PAGE .= '<a style="float:right;" href="'.$VAR['return_link']['href'].'">'.$VAR['return_link']['text'].'</a>';
+
+	$PAGE .= '
+	<h2>'.$VAR['header_text'][2].'</h2>
+	</div></div>
 <div class="center">';
 }
 
