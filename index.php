@@ -43,9 +43,6 @@ call_back_list('save_resources', array('authenticate','load_data','save_data'));
 call_back_list("rss", array( 'load_data', 'render_rss' ) );
 call_back_list("rdf", array( 'load_data', 'render_rdf' ) );
 
-// set the default page to browse
-if(!isset($_REQUEST['page'])) $_REQUEST['page'] = "browse";
-
 // load the plugins
 if(is_dir($VAR['plugin_dir']))
 	if ($dh = opendir($VAR['plugin_dir']))
@@ -58,11 +55,14 @@ if(is_dir($VAR['plugin_dir']))
 		closedir($dh);
 	}
 
+
 // load the specified page
 if(isset($_REQUEST['page']))
 	call($_REQUEST['page']);
-else
+else if (isset($_REQUEST['file']))
 	call('resource');
+else
+	call('browse');
 
 // output the page html
 print preg_replace('/\s+/', ' ',$PAGE);
@@ -390,7 +390,7 @@ function render_browse()
 	foreach(get_file_list() as $filename)
 	{
 		$data = $VAR['data'][$filename];
-		$url = $VAR['rf_url']."?page=resource&file=$filename";
+		$url = $VAR['rf_url']."?file=$filename";
 		$PAGE .= 
 "<div class='resource'>
 	<h1><a href='$url'>{$data['title']}</a></h1>
@@ -404,8 +404,14 @@ function render_browse()
 function render_resource()
 {
 	global $VAR, $PAGE;
+	if (!isset($VAR['data'][$_REQUEST['file']]))
+	{
+		$PAGE .= 'Invalid resource.';
+		return;
+	}
+
 	$data = $VAR['data'][$_REQUEST['file']];
-	$this_url = $VAR["rf_url"].'?page=resource&file='.$data['filename'];
+	$this_url = $VAR["rf_url"].'?file='.$data['filename'];
 	$file_url = get_file_link($data['filename']); 
 
 	$PAGE .=
@@ -666,7 +672,7 @@ function render_rss() {
 		$data = $VAR['data'][$filename];
                
 		if(!$data['title']) { continue; }
-                $resource_url = htmlentities($VAR['rf_url'].'?page=resource&file='.$filename);
+                $resource_url = htmlentities($VAR['rf_url'].'?file='.$filename);
                 print '<item><pubDate>';
                 print get_file_date($filename);
                 print '</pubDate>
