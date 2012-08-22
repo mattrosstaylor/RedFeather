@@ -3,50 +3,65 @@ ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ALL);
 
 // Global variable for storing all aspects of RedFeather's current state.
 $VAR = array(); 
+// Global variable to act as buffer for all program output
 $PAGE = '';
 
-/*	RedFeather configuration
-*/
-// Array of username/password combinations that are allowed to access the resource manager
-$VAR['users'] = array('admin'=>'shoes');
+/*	RedFeather Configuration
+*/	
+	// Text to use in the site header.
+	$VAR['header_text'] = array(
+		'Red', // coloured section of main header
+		'Feather', // plain section of main header
+		'Lightweight Resource Exhibition and Discovery', // site tagline
+	);
+	// Colour scheme for the repository.
+	$VAR['theme'] = array(
+		'linkcolor'=>'#AC1F1F', // colour used for hyperlinks, banner trim and the coloured section of the header 
+		'bannercolor'=>'#F0D0D0', // colour used for the header and footer
+		'text1'=>'black', // main text colour
+		'text2'=>'#606060', // annotation colour
+		'font'=>'sans-serif', // font to use for the site
+		'background'=>'', // page background colour
+	);
 
-// the different text components of 
-$VAR['header_text'] = array('Red','Feather','Lightweight Resource Exhibition and Discovery');
-//$VAR['return_link'] = array('text'=>'return to site >', 'href'=>'http://www.example.com');
-$VAR['theme'] = array(
-	'linkcolor'=>'#AC1F1F',
-	'bannercolor'=>'#F0D0D0',
-	'text1'=>'black',
-	'text2'=>'#606060',
-	'font'=>'sans-serif',
-	'background'=>'',
+	// Optional header section to allow navigation from RedFeather back to a parent site.
+	//$VAR['return_link'] = array('text'=>'return to site >', 'href'=>'http://www.example.com');
+
+	// Default values for a new resource
+	$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array(''),'emails'=>array(''), 'license'=>'');
+
+	// Array of username/password combinations that are allowed to access the resource manager
+	$VAR['users'] = array('admin'=>'shoes');
+
+
+/* 
+	End of RedFeather configuration */
+
+// Dimensions for various elements for the site.
+$VAR['element_size'] = array(
+	'preview_width'=>680, // width of the resource preview in px
+	'preview_height'=>550, // height of the resource preview in px
+	'metadata_width'=>300, // width of the resource metadata column in px
+	'metadata_gap'=>15, // size of the gap between the resource preview and metadata column in px
+	'manager_width'=>600 // width of the resource manager workflow
 );
 
-// The default values for a new resource
-$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array(''),'emails'=>array(''), 'license'=>'');
-
-//$VAR['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$VAR['theme'] = array('linkcolor'=>'#1F1FAC', 'bannercolor'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
-//$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array('Matt R Taylor'),'emails'=>array('mrt@ecs.soton.ac.uk'), 'license'=>'by-nd');
-
-
-// pixel widths for different elements of
-$VAR['element_size'] = array('preview_width'=>680, 'preview_height'=>550, 'metadata_gap'=>15, 'metadata_width'=>300, 'manager_width'=>600);
-
-
-
-// set system variables
+// The filename for this script
 $VAR['script_name'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
+// The full url of the directory RedFeather is installed in.
 $VAR['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
+// The full url of the RedFeather script
 $VAR['script_url'] = $VAR['base_url'].$VAR['script_name'];
-
+// The file used for storing the resource metadata
 $VAR['metadata_file'] = "resourcedata";
+// The name of the plugins folder
 $VAR['plugin_dir'] = "plugins";
 
 // function storage
 $functions = array();
 $function_map = array();
 
-// add core page flows
+// Define the different actions that can be performed and the sequence of functions to execute them
 call_back_list('browse', array( 'load_data', 'render_top','render_browse','render_bottom'));
 call_back_list('resource', array( 'load_data', 'render_top','render_resource','render_bottom'));
 call_back_list('manage_resources', array( 'authenticate','load_data', 'render_top','render_manage_list','render_bottom'));
@@ -54,7 +69,7 @@ call_back_list('save_resources', array('authenticate','load_data','save_data'));
 call_back_list("rss", array( 'load_data', 'render_rss' ) );
 call_back_list("rdf", array( 'load_data', 'render_rdf' ) );
 
-// load the plugins
+// Check for any plugins and load them.
 if(is_dir($VAR['plugin_dir']))
 	if ($dh = opendir($VAR['plugin_dir']))
 	{ 
@@ -67,7 +82,9 @@ if(is_dir($VAR['plugin_dir']))
 	}
 
 
-// load the specified page
+// Loads the required page according to the get parameters.
+// If a "file" parameter has been specified in isolation, load the resource page.
+// If no parameter has been specified, default to the browse page.
 if(isset($_REQUEST['page']))
 	call($_REQUEST['page']);
 else if (isset($_REQUEST['file']))
