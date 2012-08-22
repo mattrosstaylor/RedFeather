@@ -1,12 +1,16 @@
 <?php
 ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ALL);
 
-// global variables 
-$VAR = array();
+// Global variable for storing all aspects of RedFeather's current state.
+$VAR = array(); 
 $PAGE = '';
 
-// use variables
+/*	RedFeather configuration
+*/
+// Array of username/password combinations that are allowed to access the resource manager
 $VAR['users'] = array('admin'=>'shoes');
+
+// the different text components of 
 $VAR['header_text'] = array('Red','Feather','Lightweight Resource Exhibition and Discovery');
 //$VAR['return_link'] = array('text'=>'return to site >', 'href'=>'http://www.example.com');
 $VAR['theme'] = array(
@@ -17,19 +21,26 @@ $VAR['theme'] = array(
 	'font'=>'sans-serif',
 	'background'=>'',
 );
+
+// The default values for a new resource
 $VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array(''),'emails'=>array(''), 'license'=>'');
 
 //$VAR['header_text'] = array('Cyan','Feather','Lightweight Resource Exhibition and Discovery');$VAR['theme'] = array('linkcolor'=>'#1F1FAC', 'bannercolor'=>'#D0D0F0','text1' => 'black', 'text2'=>'#606060', 'header_logo' => 'http://thumbs.photo.net/photo/8498980-sm.jpg', 'font'=>'serif', 'background'=>'');
 //$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array('Matt R Taylor'),'emails'=>array('mrt@ecs.soton.ac.uk'), 'license'=>'by-nd');
 
-// set system variables
-$VAR['rf_file'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
-$VAR['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
-$VAR['rf_url'] = $VAR['base_url'].$VAR['rf_file'];
-$VAR['size'] = array('preview_width'=>680, 'preview_height'=>550, 'metadata_gap'=>15, 'metadata_width'=>300, 'manager_width'=>600);
 
-$VAR['metadata_file'] = "rf_data.php";
-$VAR['plugin_dir'] = "rf_plugins";
+// pixel widths for different elements of
+$VAR['element_size'] = array('preview_width'=>680, 'preview_height'=>550, 'metadata_gap'=>15, 'metadata_width'=>300, 'manager_width'=>600);
+
+
+
+// set system variables
+$VAR['script_name'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
+$VAR['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
+$VAR['script_url'] = $VAR['base_url'].$VAR['script_name'];
+
+$VAR['metadata_file'] = "resourcedata";
+$VAR['plugin_dir'] = "plugins";
 
 // function storage
 $functions = array();
@@ -98,7 +109,7 @@ function get_file_list()
 	foreach (scandir($dir) as $file)
 	{
 		if(is_dir($dir.$file)) continue;
-		if($file == $VAR['rf_file']) continue;
+		if($file == $VAR['script_name']) continue;
 		if($file == $VAR['metadata_file']) continue;
 		if(preg_match("/^\./", $file)) continue;
 		array_push($file_list, $file);
@@ -154,7 +165,7 @@ function save_data()
 	$fh = fopen($VAR['metadata_file'], 'w');
 	fwrite($fh,serialize($VAR['data']));
 	fclose($fh); 
-	header('Location:'.$VAR['rf_url'].'?page=manage_resources');
+	header('Location:'.$VAR['script_url'].'?page=manage_resources');
 }
 
 function generate_stylesheet()
@@ -166,12 +177,12 @@ function generate_stylesheet()
 	$bannercolor = $VAR['theme']['bannercolor'];
 	$background = $VAR['theme']['background'];
 	$font = $VAR['theme']['font'];
-	$manager_width = $VAR['size']['manager_width']."px";
-	$preview_width = $VAR['size']['preview_width']."px";
-	$preview_height = $VAR['size']['preview_height']."px";
-	$metadata_width = $VAR['size']['metadata_width']."px";
-	$metadata_gap = $VAR['size']['metadata_gap']."px";
-	$page_width = $VAR['size']['preview_width']+$VAR['size']['metadata_gap']+$VAR['size']['metadata_width']."px";
+	$manager_width = $VAR['element_size']['manager_width']."px";
+	$preview_width = $VAR['element_size']['preview_width']."px";
+	$preview_height = $VAR['element_size']['preview_height']."px";
+	$metadata_width = $VAR['element_size']['metadata_width']."px";
+	$metadata_gap = $VAR['element_size']['metadata_gap']."px";
+	$page_width = $VAR['element_size']['preview_width']+$VAR['element_size']['metadata_gap']+$VAR['element_size']['metadata_width']."px";
 	return "
 body { 
 	font-family: $font;
@@ -343,7 +354,7 @@ function render_top()
 
 </head><body>
 <div id="header"><div class="center">
-	<h1><a href="'.$VAR['rf_url'].'">
+	<h1><a href="'.$VAR['script_url'].'">
 		<span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'
 	</a></h1>';
 
@@ -359,7 +370,7 @@ function render_top()
 function render_bottom()
 {
 	global $VAR, $PAGE;
-	$PAGE .= '</div><div id="footer"><div class="center">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$VAR['rf_url'].'?page=manage_resources">Manage Resources</a></div></div></html>';
+	$PAGE .= '</div><div id="footer"><div class="center">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a></div></div></html>';
 }
 
 function render_browse()
@@ -382,8 +393,8 @@ function render_browse()
 			$(".resource:contains("+$("#filter").val()+")").show();
 		}
 	</script>
-	<a href="'.$VAR['rf_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>
-	<a href="'.$VAR['rf_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>
+	<a href="'.$VAR['script_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>
+	<a href="'.$VAR['script_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>
 </div>';
 
 	$PAGE .= '<div class="browse_list">';
@@ -391,7 +402,7 @@ function render_browse()
 	{
 		if (!isset($VAR['data'][$filename])) continue;
 		$data = $VAR['data'][$filename];
-		$url = $VAR['rf_url']."?file=$filename";
+		$url = $VAR['script_url']."?file=$filename";
 		$PAGE .= 
 "<div class='resource'>
 	<h1><a href='$url'>{$data['title']}</a></h1>
@@ -412,7 +423,7 @@ function render_resource()
 	}
 
 	$data = $VAR['data'][$_REQUEST['file']];
-	$this_url = $VAR["rf_url"].'?file='.$data['filename'];
+	$this_url = $VAR["script_url"].'?file='.$data['filename'];
 	$file_url = get_file_link($data['filename']); 
 
 	$PAGE .=
@@ -429,9 +440,9 @@ function render_resource()
 				js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
 				fjs.parentNode.insertBefore(js, fjs);
 			}(document, "script", "facebook-jssdk"));</script>
-			<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['size']['metadata_width'].'"></div>
+			<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['element_size']['metadata_width'].'"></div>
 	</div>
-	<div id="preview">'.generate_preview($data['filename'], $VAR['size']['preview_width'], $VAR['size']['preview_height']).'</div>
+	<div id="preview">'.generate_preview($data['filename'], $VAR['element_size']['preview_width'], $VAR['element_size']['preview_height']).'</div>
 	<div class="clearer"></div>
 </div>';
 }
@@ -523,7 +534,7 @@ function get_licenses()
 function authenticate() {
 	//global $VAR, $function_map, $_SESSION, $_POST;
 	global $VAR, $PAGE, $function_map;
-	session_set_cookie_params(0, $VAR['rf_url']);
+	session_set_cookie_params(0, $VAR['script_url']);
 	session_start();
 	if(isset($_SESSION['current_user']))
 	{
@@ -541,7 +552,7 @@ function authenticate() {
 	call_user_func('render_top');
 
 	$PAGE .=
-'<form method="post" action="'.$VAR['rf_file'].'?'.$_SERVER['QUERY_STRING'].'">
+'<form method="post" action="'.$VAR['script_name'].'?'.$_SERVER['QUERY_STRING'].'">
 	Username: <input type="text" name="username" />
 	Password: <input type="password" name="password" />
 	<input type="submit" value="Login" />
@@ -563,7 +574,7 @@ function render_manage_list()
 	$manage_resources_html = '';
 	$new_resources_html = '';
 	$files_found_list = array();
-	$PAGE .= "<form action='".$VAR['rf_file']."?page=save_resources' method='POST'>\n";
+	$PAGE .= "<form action='".$VAR['script_name']."?page=save_resources' method='POST'>\n";
 	
 	foreach (get_file_list() as $filename)
 	{
@@ -663,8 +674,8 @@ function render_rss() {
         echo '<?xml version="1.0" encoding="utf-8" ?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
     <title>RedFeather RSS</title>
-    <link>'.$VAR['rf_url'].'</link>
-    <atom:link rel="self" href="'.$VAR['rf_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
+    <link>'.$VAR['script_url'].'</link>
+    <atom:link rel="self" href="'.$VAR['script_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
     <description></description>
     <language>en</language>
 ';
@@ -673,7 +684,7 @@ function render_rss() {
 		if (!isset($VAR['data'][$filename])) continue;
 		$data = $VAR['data'][$filename];
                
-                $resource_url = htmlentities($VAR['rf_url'].'?file='.$filename);
+                $resource_url = htmlentities($VAR['script_url'].'?file='.$filename);
                 print '<item><pubDate>';
                 print get_file_date($filename);
                 print '</pubDate>
