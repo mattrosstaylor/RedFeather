@@ -28,11 +28,16 @@ $PAGE = '';
 	//$VAR['return_link'] = array('text'=>'return to site >', 'href'=>'http://www.example.com');
 
 	// Default values for a new resource
-	$VAR['default_metadata'] = array('title'=>'','description'=>'', 'creators'=>array(''),'emails'=>array(''), 'license'=>'');
+	$VAR['default_metadata'] = array(
+		'title'=>'',
+		'description'=>'', 
+		'creators'=>array(''),
+		'emails'=>array(''),
+		'license'=>''
+	);
 
 	// Array of username/password combinations that are allowed to access the resource manager
 	$VAR['users'] = array('admin'=>'shoes');
-
 
 /* 
 	End of RedFeather configuration */
