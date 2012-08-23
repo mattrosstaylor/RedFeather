@@ -6,7 +6,8 @@ $VAR = array();
 // Global variable to act as buffer for all program output
 $PAGE = '';
 
-/*	RedFeather Configuration
+/*	
+	RedFeather Configuration
 */	
 	// Text to use in the site header.
 	$VAR['header_text'] = array(
@@ -39,8 +40,21 @@ $PAGE = '';
 	// Array of username/password combinations that are allowed to access the resource manager
 	$VAR['users'] = array('admin'=>'shoes');
 
-/* 
-	End of RedFeather configuration */
+	/* 
+	End of RedFeather configuration 
+*/
+
+
+// List of available licenses for RedFeather
+$VAR['licenses'] = array(
+	''=>'unspecified',
+	'by'=>'Attribution',
+	'by-sa'=>'Attribution-ShareAlike',
+	'by-nd'=>'Attribution-NoDerivs',
+	'by-nc'=>'Attribution-NonCommercial',
+	'by-nc-sa'=>'Attribution-NonCommerical-ShareAlike',
+	'by-nc-nd'=>'Attribution-NonCommerical-NoDerivs',
+);
 
 // Dimensions for various elements for the site.
 $VAR['element_size'] = array(
@@ -51,78 +65,70 @@ $VAR['element_size'] = array(
 	'manager_width'=>600 // width of the resource manager workflow
 );
 
+// Sets the default page for RedFeather
+$VAR['default_page'] = 'page_browse';
+
 // The filename for this script
-$VAR['script_name'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
+$VAR['script_filename'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
 // The full url of the directory RedFeather is installed in.
 $VAR['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
 // The full url of the RedFeather script
-$VAR['script_url'] = $VAR['base_url'].$VAR['script_name'];
+$VAR['script_url'] = $VAR['base_url'].$VAR['script_filename'];
 // The file used for storing the resource metadata
-$VAR['metadata_file'] = "resourcedata";
+$VAR['metadata_filename'] = "resourcedata";
 // The name of the plugins folder
-$VAR['plugin_dir'] = "plugins";
+$VAR['plugin_dir'] = "plugins2";
 
-// function storage
-$functions = array();
-$function_map = array();
+// Maps function names to functions, this allows you to override any RedFeather function.
+$function_map = array(
+	// 'page_browse'=>'page_browse_new',
+);
 
-// Define the different actions that can be performed and the sequence of functions to execute them
-call_back_list('browse', array( 'load_data', 'render_top','render_browse','render_bottom'));
-call_back_list('resource', array( 'load_data', 'render_top','render_resource','render_bottom'));
-call_back_list('manage_resources', array( 'authenticate','load_data', 'render_top','render_manage_list','render_bottom'));
-call_back_list('save_resources', array('authenticate','load_data','save_data'));
-call_back_list("rss", array( 'load_data', 'render_rss' ) );
-call_back_list("rdf", array( 'load_data', 'render_rdf' ) );
+// Calls a function within RedFeather to provide a simple plugin architecture.
+// To maintain compatibility with PHP 4.0, functions should only take a single parameter - which is passed through to the target.
+// When a named function is called, the function_map is first checked to see if an override function has been assigned.
+// If it has, that function is called, otherwise it will call the function directly.
+function call($function, $param=null)
+{
+	global $function_map;
+	if (isset($function_map[$function]))
+		return call_user_func($function_map[$function], $param);
+	else return call_user_func($function, $param);
+}
 
-// Check for any plugins and load them.
+// If a plugin directory exists, open it and include any php files it contains.
+// Some variables and functions could be overwritten at this point, depending on the plugins installed.
 if(is_dir($VAR['plugin_dir']))
 	if ($dh = opendir($VAR['plugin_dir']))
 	{ 
 		while (($file = readdir($dh)) !== false) 
-		{
 			if(is_file($VAR['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file))
 				include($VAR['plugin_dir'].'/'.$file);
-		}
 		closedir($dh);
 	}
 
+// Load the resource metadata
+call('load_data');
 
 // Loads the required page according to the get parameters.
+// publically accessible functions should be prefixed with "page_".
 // If a "file" parameter has been specified in isolation, load the resource page.
-// If no parameter has been specified, default to the browse page.
+// If no parameter has been specified, use the default.
 if(isset($_REQUEST['page']))
-	call($_REQUEST['page']);
+	call('page_'.$_REQUEST['page']);
 else if (isset($_REQUEST['file']))
-	call('resource');
+	call('page_resource');
 else
-	call('browse');
+	call($VAR['default_page']);
 
 // output the page html
 print preg_replace('/\s+/', ' ',$PAGE);
 
+/*
+	Functions to interact with the local file system.
+*/
 
-// FUNCTIONS FROM HERE ON DOWN
-function call($function_name)
-{
-	global $functions, $function_map;
-	foreach( $functions[$function_name] as $function )
-		if (isset($function_map[$function]))
-			call_user_func($function_map[$function]);
-		else call_user_func($function);
-}
-
-function call_back_list($function_name, $list=NULL)
-{
-	global $functions;
-	if($list == NULL)
-	{
-		if(isset($functions[$function_name]))
-			return $functions[$function_name];
-		return array();
-	}
-	$functions[$function_name] = $list;
-}
-
+// returns a list of all files within the RedFeather resource scope (i.e. that can be annotated)
 function get_file_list()
 {
 	global $VAR;
@@ -130,66 +136,188 @@ function get_file_list()
 	$dir = "./";
 	foreach (scandir($dir) as $file)
 	{
-		if(is_dir($dir.$file)) continue;
-		if($file == $VAR['script_name']) continue;
-		if($file == $VAR['metadata_file']) continue;
-		if(preg_match("/^\./", $file)) continue;
+		// exclude directories, hidden files, the RedFeather file and the metadata file
+		if( is_dir($dir.$file) || preg_match("/^\./", $file) || $file == $VAR['script_filename'] || $file == $VAR['metadata_filename']) continue;
 		array_push($file_list, $file);
 	}
 	return $file_list;
 }
 
+
+// returns a absolute hyperlink to a given file
 function get_file_link($filename)
 {
 	global $VAR;
 	return $VAR['base_url'].$filename;
 }
 
+// returns the data a file was last edited
 function get_file_date($filename)
 {
 	return date ("d F Y H:i:s.", filemtime($filename));
 }
 
+// returns the image size information from a file (replicates the behaviour of the standard php function
 function get_image_size($filename)
 {
 	return getimagesize($filename);
 }
 
-
+// loads the resource metadata from the filesystem in the global variable $VAR
 function load_data()
 {
 	global $VAR;
-	$VAR['data'] = unserialize(file_get_contents($VAR['metadata_file']));
+	$VAR['data'] = unserialize(file_get_contents($VAR['metadata_filename']));
 	if(!is_array($VAR['data']) )
 		$VAR['data']= array();
 
 }
 
-function save_data()
+/* public function to save data from the resource manager to the local file system
+	Only available for POST requests
+	$_POST['resource_count'] contains the full number of resources being saved.
+	Each resource being saved has an explicit number associated with it in order to group its component metadata fields together.
+	These fields are indexed in the post array using a concatentation of the fieldname and the resource number.
+	Thus, the filename of the 3rd resource is $_POST['filename3'] and the description of the 2nd is $_POST['description2'].
+	Arrays are treated in exactly the same way as single values and can be saved without issue.
+	Files that are designated as "missing" will have their metadata retained even if they are not part of the main POST.
+*/
+function page_save_data()
 {
 	global $VAR;
+	// check request type
+	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+		header('HTTP/1.1 405 Method Not Allowed');
+		return;
+	}
+	
+	// ensure that the user is logged in
+	call('authenticate');
+
+	// keep a copy of the old data. This is used to retain resource metadata in the event that a file is missing..
 	$old_data = $VAR['data'];
 	$VAR['data'] = array();
-	for ($i = 0; $i < $_REQUEST['resource_count']; $i++)
+	
+	// loop once for each resource that is being saved
+	for ($i = 0; $i < $_POST['resource_count']; $i++)
 	{
-		$filename = $_REQUEST["filename$i"];
+		// get the filename, this is used as the main index for the resource.  If no filename is posted, ignore this resource.
+		$filename = $_POST["filename$i"];
 		if ($filename == NULL) continue;
 
-		foreach ($_REQUEST as $key => $value)
+		// scan through each parameter in the post array
+		foreach ($_POST as $key => $value)
+			// if parameter is of the form fieldname.number - it is a field and should be added to data array in the form $VAR['data']['example.doc']['title'] = "Example document"
 			if (preg_match("/(.*)($i\$)/", $key, $matches))
 				$VAR['data'][$filename][$matches[1]] = $value;
 	}
 
-	if (isset($_REQUEST['missing']))
-		foreach ($_REQUEST['missing'] as $missed)
+	// if a file is designated as missing, retrieve the metadata from $old_data
+	if (isset($_POST['missing']))
+		foreach ($_POST['missing'] as $missed)
 			$VAR['data'][$missed] = $old_data[$missed];
 
-	$fh = fopen($VAR['metadata_file'], 'w');
+	// save the array as serialized PHP
+	$fh = fopen($VAR['metadata_filename'], 'w');
 	fwrite($fh,serialize($VAR['data']));
-	fclose($fh); 
+	fclose($fh);
+
+	// redirect to the resource manager
 	header('Location:'.$VAR['script_url'].'?page=manage_resources');
 }
 
+/*
+	End of functions to interact with the local file system.
+*/
+
+
+// function to provide simple authentication functionality
+function authenticate() {
+	global $VAR, $PAGE, $function_map;
+
+	// check the session for an authenticated user and return to the parent function if valid.
+	session_set_cookie_params(0, $VAR['script_url']);
+	session_start();
+	if(isset($_SESSION['current_user']))
+	{
+		return;
+	}
+
+	// If this is a post requesting to log in, check username and password against authorised credentials.
+	if (isset($_POST['username']) && isset($_POST['password']) 
+		&& isset($VAR['users'][$_POST['username']]) 
+		&& $VAR['users'][$_POST['username']]==$_POST['password']) 
+	{
+		$_SESSION['current_user']=$_POST['username'];
+		return;
+	}
+	
+
+	// if the user is unauthenticated and not making a signing post, render login screen.	
+	call('render_top');
+
+	$PAGE .=
+'<form method="post" action="'.$VAR['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
+	Username: <input type="text" name="username" />
+	Password: <input type="password" name="password" />
+	<input type="submit" value="Login" />
+</form>';
+	call('render_bottom');
+
+	print $PAGE;
+	exit;
+}
+
+// renders the top section of the html, including javascript, inline style sheet, page header, and opening section of the main content div
+function render_top()
+{
+	global $VAR, $PAGE;
+
+	// get the main title of the page
+	$VAR['page_title'] = $VAR['header_text'][0].$VAR['header_text'][1];
+
+	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
+	$PAGE .= 
+'<html><head>
+	<title>'.$VAR['page_title'].'</title>
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+	<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
+	<style type="text/css">'.call('generate_stylesheet').'</style>
+	<script type="text/javascript">
+		
+		function add_creator($num) {
+			var creators = $("#creators" +$num);
+			var addcreator = $("#addcreator" +$num);
+			creators.append("<tr><td><input name=\'creators" +$num +"[]\' autocomplete=\'off\' /></td><td><input name=\'emails" +$num +"[]\' autocomplete=\'off\' /></td><td><a href=\'#\' onclick=\'javascript:$(this).parent().parent().remove(); return false;\'>remove</a></td></tr>");
+			addcreator.remove().appendTo(creators);
+		}
+	</script>
+
+</head><body>
+<div id="header"><div class="center">
+	<h1><a href="'.$VAR['script_url'].'">
+		<span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'
+	</a></h1>';
+
+	// add the optional 'return link' as documented in the RedFeather configuration section
+	if (isset($VAR['return_link']))
+		$PAGE .= '<a style="float:right;" href="'.$VAR['return_link']['href'].'">'.$VAR['return_link']['text'].'</a>';
+
+	$PAGE .= '
+	<h2>'.$VAR['header_text'][2].'</h2>
+	</div></div>
+<div class="center">';
+}
+
+
+// renders the bottom of the html, closing the main content div and adding the footer
+function render_bottom()
+{
+	global $VAR, $PAGE;
+	$PAGE .= '</div><div id="footer"><div class="center">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a></div></div></html>';
+}
+
+// returns the default stylesheet for RedFeather
 function generate_stylesheet()
 {
 	global $VAR;
@@ -346,61 +474,21 @@ tr>:first-child {
 	margin-bottom: 6px;
 }
 ";
-
 }
 
-function render_top()
+/*
+	Public functions.
+*/ 
+
+// Browse page for RedFeather.
+// Lists all the resources that have been annotated and provides a facility to search.
+function page_browse()
 {
 	global $VAR, $PAGE;
-	$VAR['page_title'] = $VAR['header_text'][0].$VAR['header_text'][1];
-	$PAGE .= 
-'<html><head>
-	<title>'.$VAR['page_title'].'</title>
-	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-	<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
-	<style type="text/css">'.generate_stylesheet().'</style>
-	<script type="text/javascript">
-		window.setTimeout("preview_fallback()", 10000);
-		function preview_fallback() {
-			var d = document.getElementById("preview");
-			d.className = d.className + " message_inserted";
-		}
+	call('render_top');
 
-		function add_creator($num) {
-			var creators = $("#creators" +$num);
-			var addcreator = $("#addcreator" +$num);
-			creators.append("<tr><td><input name=\'creators" +$num +"[]\' autocomplete=\'off\' /></td><td><input name=\'emails" +$num +"[]\' autocomplete=\'off\' /></td><td><a href=\'#\' onclick=\'javascript:$(this).parent().parent().remove(); return false;\'>remove</a></td></tr>");
-			addcreator.remove().appendTo(creators);
-		}
-	</script>
 
-</head><body>
-<div id="header"><div class="center">
-	<h1><a href="'.$VAR['script_url'].'">
-		<span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'
-	</a></h1>';
-
-	if (isset($VAR['return_link']))
-		$PAGE .= '<a style="float:right;" href="'.$VAR['return_link']['href'].'">'.$VAR['return_link']['text'].'</a>';
-
-	$PAGE .= '
-	<h2>'.$VAR['header_text'][2].'</h2>
-	</div></div>
-<div class="center">';
-}
-
-function render_bottom()
-{
-	global $VAR, $PAGE;
-	$PAGE .= '</div><div id="footer"><div class="center">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a></div></div></html>';
-}
-
-function render_browse()
-{
-	global $VAR, $PAGE;
-
-	$licenses = get_licenses();
-
+	// add the search box and associated javascript; and the links to the RSS and RDF pages
 	$PAGE .=
 '<div id="content"><div class="browse_tools">
 	Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
@@ -419,198 +507,190 @@ function render_browse()
 	<a href="'.$VAR['script_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>
 </div>';
 
+	// div for resource list
 	$PAGE .= '<div class="browse_list">';
-	foreach(get_file_list() as $filename)
+
+	// get the list of all files within the RedFeather scope
+	foreach(call('get_file_list') as $filename)
 	{
+		// if there is no data for this file, skip it
 		if (!isset($VAR['data'][$filename])) continue;
+		
+		// otherwise, retrieve the data and render the resource using the "generate_metadata_table" function
 		$data = $VAR['data'][$filename];
 		$url = $VAR['script_url']."?file=$filename";
 		$PAGE .= 
 "<div class='resource'>
 	<h1><a href='$url'>{$data['title']}</a></h1>
 	<p>{$data['description']}</p>
-	".generate_metadata_table($data)."
+	".call('generate_metadata_table', $data)."
 </div>";
 	}
 	$PAGE .= '</div></div>';
+
+	call('render_bottom');
 }
 
-function render_resource()
+// View the resource preview, metadata and social networking plugin
+function page_resource()
 {
 	global $VAR, $PAGE;
-	if (!isset($VAR['data'][$_REQUEST['file']]))
+
+	// check that the file requested actually exists
+	if (!isset($_REQUEST['file']) || !isset($VAR['data'][$_REQUEST['file']]))
 	{
 		$PAGE .= 'Invalid resource.';
 		return;
 	}
 
+	call('render_top');	
+
+	// get the resource metadata and compute urls
 	$data = $VAR['data'][$_REQUEST['file']];
 	$this_url = $VAR["script_url"].'?file='.$data['filename'];
-	$file_url = get_file_link($data['filename']); 
+	$file_url = call('get_file_link', $data['filename']); 
 
 	$PAGE .=
 '<div id="content">
 	<div class="metadata">
 		<h1>'.$data['title'].'</h1>
 		<p>'.$data['description'].'</p>
-		'.generate_metadata_table($data).'
-		<div id="fb-root"></div><script>
-			(function(d, s, id) {
-				var js, fjs = d.getElementsByTagName(s)[0];
-				if (d.getElementById(id)) return;
-				js = d.createElement(s); js.id = id;
-				js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
-				fjs.parentNode.insertBefore(js, fjs);
-			}(document, "script", "facebook-jssdk"));</script>
-			<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['element_size']['metadata_width'].'"></div>
+		'.call('generate_metadata_table', $data).'
+		'.call('generate_comment_widget', $this_url).'
 	</div>
-	<div id="preview">'.generate_preview($data['filename'], $VAR['element_size']['preview_width'], $VAR['element_size']['preview_height']).'</div>
+	<div id="preview">'.call('generate_preview', array($data['filename'], $VAR['element_size']['preview_width'], $VAR['element_size']['preview_height'])).'</div>
 	<div class="clearer"></div>
 </div>';
+
+	call('render_bottom');
 }
 
-function generate_preview($filename, $width , $height)
+
+// return the Facebook comment widget
+function generate_comment_widget($this_url)
 {
 	global $VAR;
-	$file_url = get_file_link($filename);
-	$image_size = get_image_size($filename);
+
+	return '
+<div id="fb-root"></div>
+<script>
+	(function(d, s, id) {
+		var js, fjs = d.getElementsByTagName(s)[0];
+		if (d.getElementById(id)) return;
+		js = d.createElement(s); js.id = id;
+		js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
+		fjs.parentNode.insertBefore(js, fjs);
+	}(document, "script", "facebook-jssdk"));
+</script>
+<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['element_size']['metadata_width'].'"></div>';
+}
+
+
+// Return the preview widget for a given resource at the dimensions specified.
+// If the resource is determined to be an image, it renders as a simple <img> element.
+// Otherwise, it will be rendered using the googledocs previewer.
+// Due to a bug in the googledocs API, the service can sometimes silently fail and return an empty iframe.
+// Since there is no way to detect this when it occurs, and is a fatal bug in terms of preview functionality, a workaround has been devised where an error message is hidden underneath the preview widget.  If the preview widget fails it will be visible through the empty iframe.
+function generate_preview($params)
+{
+	global $VAR;
+	$filename = $params[0];
+	$width = $params[1];
+	$height = $params[2];
+
+
+	// get absolute url for file
+	$file_url = call('get_file_link', $filename);
+
+	// attempt to determine the image dimensions of the resource
+	$image_size = call('get_image_size', $filename);
+	// if the function succeed, assume the resource is an image
 	if ($image_size)
 	{
+		// stretch the image to fit preview area, depending on aspect ratio
 		if ($width-$image_size[0] < $height-$image_size[1])
 			return "<img src='$file_url' width='$width'>";
 		else	
 			return "<img src='$file_url' height='$height'>";
 	}
+	// if the function failed, attempt to render using googledocs previewer
 	else
 	{
-		if (isDomainAvailable('http://docs.google.com/viewer') == false)
-		{
-			return "<div class='message'><h1>Preview unavailable.</h1><p>The Google docs viewer appears to be inaccessible.</p></div>";
-		}
-		$error_fallback = "<div class='message'><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>";
+		// create error message in case the widget fails to load
+		$error_fallback = "
+<script>
+	window.setTimeout('preview_fallback()', 10000);
+	function preview_fallback() {
+		var d = document.getElementById('preview');
+		d.className = d.className + ' message_inserted';
+	}
+</script>
+<div class='message'><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>";
+	
+		// place the error message directly underneath the widget
 		return $error_fallback.'<iframe src="http://docs.google.com/viewer?embedded=true&url='.urlencode($file_url).'"></iframe>';
 	}
 }
 
-function isDomainAvailable($domain)
-{
-	// this code is currently not php 4 compliant.
-	return true;
-
-	//check, if a valid url is provided
-	if(!filter_var($domain, FILTER_VALIDATE_URL))
-	{
-		return false;
-	}
-
-	//initialize curl
-	$curlInit = curl_init($domain);
-	curl_setopt($curlInit,CURLOPT_CONNECTTIMEOUT,10);
-	curl_setopt($curlInit,CURLOPT_HEADER,true);
- 	curl_setopt($curlInit,CURLOPT_NOBODY,true);
-	curl_setopt($curlInit,CURLOPT_RETURNTRANSFER,true);
-
-	//get answer
-	$response = curl_exec($curlInit);
-	curl_close($curlInit);
-
-	if ($response) return true;
-
-	return false;
-}
-
+// returns the metadata table for the resource data specified
 function generate_metadata_table($data)
 {
 	global $VAR;
-	$licenses = get_licenses();
 	$table = '<table class="metadata_table"><tbody>';
 
-	if (isset($data['creators']))
+	// check that the creator field exists and not an empty placeholder
+	if (isset($data['creators']) && trim($data['creators'][0]) != '')
 	{
+		// table header should be creator/creators depending on size of array
 		$table .= '<tr><td>Creator' .((sizeof($data['creators'])>1) ? 's': '').':</td><td>';
+		// loop through each creator name and create a mailto link for them if required
 		for ($i = 0; $i < sizeof($data['creators']); $i++)
-			$table .= '<a href="mailto:'.$data['emails'][$i].'">'.$data['creators'][$i].'</a><br/>';
+			if (trim($data['emails'][$i]) == '')
+				$table .= $data['creators'][$i].'<br/>';
+			else
+				$table .= '<a href="mailto:'.$data['emails'][$i].'">'.$data['creators'][$i].'</a><br/>';
 		$table .= '</td></tr>';
 	}
+
+	// add the other metadata fields
 	$table .='
-		<tr><td>Updated:</td><td>'.get_file_date($data['filename']).'</td></tr>
-		<tr><td>License:</td><td>'.$licenses[$data['license']].'</td></tr>
-		<tr><td>Download:</td><td><a target="_blank" href="'.get_file_link($data['filename']).'">'.$data['filename'].'</a></td></tr>
+		<tr><td>Updated:</td><td>'.call('get_file_date', $data['filename']).'</td></tr>
+		<tr><td>License:</td><td>'.$VAR['licenses'][$data['license']].'</td></tr>
+		<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', $data['filename']).'">'.$data['filename'].'</a></td></tr>
 	</tbody></table>';
 	return $table;
 }
 
-function get_licenses()
-{
-	$cc = array();
-	$cc[''] = 'unspecified';
-	$cc['by'] = 'Attribution';
-	$cc['by-sa'] = 'Attribution-ShareAlike';
-	$cc['by-nd'] = 'Attribution-NoDerivs';
-	$cc['by-nc'] = 'Attribution-NonCommercial';
-	$cc['by-nc-sa'] = 'Attribution-NonCommerical-ShareAlike';
-	$cc['by-nc-nd'] = 'Attribution-NonCommerical-NoDerivs';
-	return $cc;
-}
-
-function authenticate() {
-	//global $VAR, $function_map, $_SESSION, $_POST;
-	global $VAR, $PAGE, $function_map;
-	session_set_cookie_params(0, $VAR['script_url']);
-	session_start();
-	if(isset($_SESSION['current_user']))
-	{
-		return 0;
-	}
-	if (isset($_POST['username']) && isset($_POST['password']) 
-		&& isset($VAR['users'][$_POST['username']]) 
-		&& $VAR['users'][$_POST['username']]==$_POST['password']) 
-	{
-		$_SESSION['current_user']=$_POST['username'];
-		return;
-	}
-	
-	
-	call_user_func('render_top');
-
-	$PAGE .=
-'<form method="post" action="'.$VAR['script_name'].'?'.$_SERVER['QUERY_STRING'].'">
-	Username: <input type="text" name="username" />
-	Password: <input type="password" name="password" />
-	<input type="submit" value="Login" />
-</form>';
-	call_user_func('render_bottom');
-
-	print $PAGE;
-	exit;
-}
-
-function render_manage_list()
+// public function for the RedFeather resource manager
+function page_manage_resources()
 {
 	global $VAR, $PAGE;
-	$PAGE .= '<div id="content"><h1>Manage Resources</h1>';
 
+	call('authenticate');
+	call('render_top');
+
+	$PAGE .= '<div id="content"><h1>Manage Resources</h1>';
 
 	$new_file_count = 0;
 	$num = 0;
-	$manage_resources_html = '';
+	$page_manage_resources_html = '';
 	$new_resources_html = '';
 	$files_found_list = array();
-	$PAGE .= "<form action='".$VAR['script_name']."?page=save_resources' method='POST'>\n";
+	$PAGE .= "<form action='".$VAR['script_filename']."?page=save_data' method='POST'>\n";
 	
-	foreach (get_file_list() as $filename)
+	foreach (call('get_file_list') as $filename)
 	{
 		if (isset($VAR['data'][$filename])) {
 			$data = $VAR['data'][$filename];
 			array_push($files_found_list, $filename);
-			$manage_resources_html .= "<div class='manageable' id='resource$num'>".generate_manageable_item($data, $num)."</div>";
+			$page_manage_resources_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($data, $num))."</div>";
 		}
 		else
 		{
 			//the default data for the workflow
 			$data = $VAR['default_metadata'];
 			$data['filename'] = $filename;
-			$new_resources_html .= "<div class='manageable' id='resource$num'>".generate_manageable_item($data, $num)."</div>";
+			$new_resources_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($data, $num))."</div>";
 			$new_file_count++;
 		}
 		$num++;
@@ -633,18 +713,24 @@ function render_manage_list()
 	if ($new_file_count) $PAGE .= "<div class='new_resources'><p>$new_file_count new files found.</p>".$new_resources_html."</div>";
 
 
-	$PAGE .= "<div>$manage_resources_html</div>";
+	$PAGE .= "<div>$page_manage_resources_html</div>";
 	$PAGE .= "<input type='hidden' name='resource_count' value='$num'/>";
 	$PAGE .= "<input type='submit' value='Save'/>";
 	$PAGE .= "</form></div>";
+
+	call('render_bottom');
 }
 
 
-function generate_manageable_item($data, $num)
+function generate_manageable_item($params)
 {
 	global $VAR;
+
+	$data = $params[0];
+	$num = $params[1];
+
 	$item_html = "
-<h1><a href='".get_file_link($data['filename'])."' target='_blank'>".$data['filename']."</a></h1>
+<h1><a href='".call('get_file_link', $data['filename'])."' target='_blank'>".$data['filename']."</a></h1>
 <input type='hidden' name='filename$num' value='".$data['filename']."' />
 <table>
 	<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>
@@ -671,7 +757,7 @@ function generate_manageable_item($data, $num)
 ";
 
 	$license_options = "";
-	foreach (get_licenses() as $key => $value)	
+	foreach ($VAR['licenses'] as $key => $value)	
 	{
 		if ($data['license'] == $key)
 			$selected = 'selected';
@@ -688,7 +774,7 @@ function generate_manageable_item($data, $num)
 }
 
 
-function render_rss() {
+function page_rss() {
         global $VAR;
         
         header("Content-type: application/rss+xml");
@@ -701,14 +787,14 @@ function render_rss() {
     <description></description>
     <language>en</language>
 ';
-        foreach(get_file_list() as $filename)
+        foreach(call('get_file_list') as $filename)
 	{
 		if (!isset($VAR['data'][$filename])) continue;
 		$data = $VAR['data'][$filename];
                
                 $resource_url = htmlentities($VAR['script_url'].'?file='.$filename);
                 print '<item><pubDate>';
-                print get_file_date($filename);
+                print call('get_file_date', $filename);
                 print '</pubDate>
   <title>'.htmlentities($data['title']).'</title>
   <link>'.$resource_url.'</link>
@@ -720,7 +806,7 @@ function render_rss() {
         print '</channel></rss>';
 }
 
-function render_rdf() {
+function page_rdf() {
         global $VAR;
 	print 'Coming soon...';        
 }
