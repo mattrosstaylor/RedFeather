@@ -180,8 +180,7 @@ function load_data()
 	These fields are indexed in the post array using a concatentation of the fieldname and the resource number.
 	Thus, the filename of the 3rd resource is $_POST['filename3'] and the description of the 2nd is $_POST['description2'].
 	Arrays are treated in exactly the same way as single values and can be saved without issue.
-	Files that are designated as "missing" will have their metadata retained even if they are not part of the main POST.
-*/
+	Files that are designated as "missing" will have their metadata retained even if they are not part of the main POST. */
 function page_save_data()
 {
 	global $VAR;
@@ -282,17 +281,7 @@ function render_top()
 	<title>'.$VAR['page_title'].'</title>
 	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 	<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
-	<style type="text/css">'.call('generate_stylesheet').'</style>
-	<script type="text/javascript">
-		
-		function add_creator($num) {
-			var creators = $("#creators" +$num);
-			var addcreator = $("#addcreator" +$num);
-			creators.append("<tr><td><input name=\'creators" +$num +"[]\' autocomplete=\'off\' /></td><td><input name=\'emails" +$num +"[]\' autocomplete=\'off\' /></td><td><a href=\'#\' onclick=\'javascript:$(this).parent().parent().remove(); return false;\'>remove</a></td></tr>");
-			addcreator.remove().appendTo(creators);
-		}
-	</script>
-
+	<style type="text/css">'.call('generate_stylesheet').'</style>	
 </head><body>
 <div id="header"><div class="center">
 	<h1><a href="'.$VAR['script_url'].'">
@@ -586,11 +575,11 @@ function generate_comment_widget($this_url)
 }
 
 
-// Return the preview widget for a given resource at the dimensions specified.
-// If the resource is determined to be an image, it renders as a simple <img> element.
-// Otherwise, it will be rendered using the googledocs previewer.
-// Due to a bug in the googledocs API, the service can sometimes silently fail and return an empty iframe.
-// Since there is no way to detect this when it occurs, and is a fatal bug in terms of preview functionality, a workaround has been devised where an error message is hidden underneath the preview widget.  If the preview widget fails it will be visible through the empty iframe.
+/* Return the preview widget for a given resource at the dimensions specified.
+	If the resource is determined to be an image, it renders as a simple <img> element.
+	Otherwise, it will be rendered using the googledocs previewer.
+	Due to a bug in the googledocs API, the service can sometimes silently fail and return an empty iframe.
+	Since there is no way to detect this when it occurs, and is a fatal bug in terms of preview functionality, a workaround has been devised where an error message is hidden underneath the preview widget.  If the preview widget fails it will be visible through the empty iframe. */
 function generate_preview($params)
 {
 	global $VAR;
@@ -661,7 +650,11 @@ function generate_metadata_table($data)
 	return $table;
 }
 
-// public function for the RedFeather resource manager
+/* Public function for the RedFeather resource manager
+	Provides an interface to annotate all the files accessible to RedFeather.
+	User must be authenticated to access this page.
+	New files are added to the top of the list.
+	Files which have metadata, but are missing from the filesystem are listed as such and provided with a link allowing them to be deleted if required. */
 function page_manage_resources()
 {
 	global $VAR, $PAGE;
@@ -669,25 +662,31 @@ function page_manage_resources()
 	call('authenticate');
 	call('render_top');
 
-	$PAGE .= '<div id="content"><h1>Manage Resources</h1>';
-
+	// counter for the number of new files detected
 	$new_file_count = 0;
+	// counter for the total number of files
 	$num = 0;
+	// html for existing resources 
 	$page_manage_resources_html = '';
+	// html for new resources
 	$new_resources_html = '';
+
+	// list for files that were present in the filesystem	
 	$files_found_list = array();
-	$PAGE .= "<form action='".$VAR['script_filename']."?page=save_data' method='POST'>\n";
-	
+ 
+	$PAGE .= "<div id='content'><h1>Manage Resources</h1><form action='".$VAR['script_filename']."?page=save_data' method='POST'>\n";
+
+	// iterate through all the files currently present in the filesystem	
 	foreach (call('get_file_list') as $filename)
 	{
+		// if the metadata exists for the file, render the workflow item and add it to the list of found files
 		if (isset($VAR['data'][$filename])) {
-			$data = $VAR['data'][$filename];
+			$page_manage_resources_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($VAR['data'][$filename], $num))."</div>";
 			array_push($files_found_list, $filename);
-			$page_manage_resources_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($data, $num))."</div>";
 		}
 		else
 		{
-			//the default data for the workflow
+			// if the file exists but the metadata doesn't, render a new workflow item with the default metadata
 			$data = $VAR['default_metadata'];
 			$data['filename'] = $filename;
 			$new_resources_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($data, $num))."</div>";
@@ -701,19 +700,22 @@ function page_manage_resources()
 	$missing_resources_html = '';
 	$missing_num = 0;
 
+	// loop through all the metadata entries
 	foreach ($VAR['data'] as $key => $value) {
-		if (! in_array($key, $files_found_list))
+		// if file doesn't exist in the filesystem, render it as a missing resource and incremenet the missing resource counter 
+		if (!in_array($key, $files_found_list))
 		{
 			$missing_resources_html .= "<div class='manageable' id='missing$missing_num'><p>Resource not found: $key <a href='#' onclick='javascript:$(\"#missing$missing_num\").remove();return false;'>delete metadata</a></p><input type='hidden' name='missing[]' value='$key'/></div>";
 			$missing_num++;
 		}
 	}
-	
+
+	// build the page by combining the component lists, with missing resources at the top, followed by new files, followed by existing items	
 	$PAGE .= $missing_resources_html;
 	if ($new_file_count) $PAGE .= "<div class='new_resources'><p>$new_file_count new files found.</p>".$new_resources_html."</div>";
-
-
 	$PAGE .= "<div>$page_manage_resources_html</div>";
+	
+	// add total number of resources to the as a hidden field
 	$PAGE .= "<input type='hidden' name='resource_count' value='$num'/>";
 	$PAGE .= "<input type='submit' value='Save'/>";
 	$PAGE .= "</form></div>";
@@ -722,6 +724,7 @@ function page_manage_resources()
 }
 
 
+// returns the html for a single item on the resource workflow
 function generate_manageable_item($params)
 {
 	global $VAR;
@@ -729,6 +732,7 @@ function generate_manageable_item($params)
 	$data = $params[0];
 	$num = $params[1];
 
+	// render the basic fields
 	$item_html = "
 <h1><a href='".call('get_file_link', $data['filename'])."' target='_blank'>".$data['filename']."</a></h1>
 <input type='hidden' name='filename$num' value='".$data['filename']."' />
@@ -738,24 +742,27 @@ function generate_manageable_item($params)
 	<tr><td>Creators</td><td>
 		<table id='creators$num' class='creators'><tr><th>Name</th><th>Email</th><th/></tr>";
 
+	// check if there are creators currently set for this resource
 	if (isset($data['creators']))
-	for ($i = 0; $i < sizeof($data['creators']); $i++)
-	{
-		$item_html .= "
-			<tr>
-				<td><input name='creators".$num."[]' value='".$data['creators'][$i]."' autocomplete='off' /></td>
-				<td><input name='emails".$num."[]' value='".$data['emails'][$i]."' autocomplete='off' /></td>
-				<td><a href='#' onclick='javascript:$(this).parent().parent().remove(); return false;'>remove</a></td>
-			</tr>";
+		// loop through the creators and create the creator/email table rows
+		for ($i = 0; $i < sizeof($data['creators']); $i++)
+		{
+			$item_html .= "
+				<tr>
+					<td><input name='creators".$num."[]' value='".$data['creators'][$i]."' autocomplete='off' /></td>
+					<td><input name='emails".$num."[]' value='".$data['emails'][$i]."' autocomplete='off' /></td>
+					<td><a href='#' onclick='javascript:$(this).parent().parent().remove(); return false;'>remove</a></td>
+				</tr>";
 
-	}
+		}
+	// add the new creator button
 	$item_html .= "
 	<tr id='addcreator$num'>
 		<td><a creator$num' href='#' onclick='javascript:add_creator($num);return false;'>add new creator</a></td>
 	</tr>
 </table>
 ";
-
+	// add license dropdown box
 	$license_options = "";
 	foreach ($VAR['licenses'] as $key => $value)	
 	{
@@ -770,25 +777,40 @@ function generate_manageable_item($params)
 	$item_html .= "<tr><td class='table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
 	$item_html .= "</table>";
 
+	// add the javascript function for the creator widget
+	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
+	$item_html .= '
+<script type="text/javascript">
+	function add_creator($num) {
+		var creators = $("#creators" +$num);
+		var addcreator = $("#addcreator" +$num);
+		creators.append("<tr><td><input name=\'creators" +$num +"[]\' autocomplete=\'off\' /></td><td><input name=\'emails" +$num +"[]\' autocomplete=\'off\' /></td><td><a href=\'#\' onclick=\'javascript:$(this).parent().parent().remove(); return false;\'>remove</a></td></tr>");
+		addcreator.remove().appendTo(creators);
+	}
+</script>';
+
 	return $item_html;
 }
 
 
+// Public function for the RSS feed
 function page_rss() {
         global $VAR;
         
         header("Content-type: application/rss+xml");
 
-        echo '<?xml version="1.0" encoding="utf-8" ?>
+        print '<?xml version="1.0" encoding="utf-8" ?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
-    <title>RedFeather RSS</title>
-    <link>'.$VAR['script_url'].'</link>
-    <atom:link rel="self" href="'.$VAR['script_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
-    <description></description>
-    <language>en</language>
+  <title>RedFeather RSS</title>
+  <link>'.$VAR['script_url'].'</link>
+  <atom:link rel="self" href="'.$VAR['script_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
+  <description></description>
+  <language>en</language>
 ';
+	// loop through all files which are public accessible
         foreach(call('get_file_list') as $filename)
 	{
+		// ignore any files without metadata
 		if (!isset($VAR['data'][$filename])) continue;
 		$data = $VAR['data'][$filename];
                
@@ -806,6 +828,8 @@ function page_rss() {
         print '</channel></rss>';
 }
 
+
+// public function for RDF
 function page_rdf() {
         global $VAR;
 	print 'Coming soon...';        
