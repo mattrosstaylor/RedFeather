@@ -40,10 +40,9 @@ $PAGE = '';
 	// Array of username/password combinations that are allowed to access the resource manager
 	$VAR['users'] = array('admin'=>'shoes');
 
-	/* 
+/* 
 	End of RedFeather configuration 
 */
-
 
 // List of available licenses for RedFeather
 $VAR['licenses'] = array(
@@ -154,7 +153,7 @@ function get_file_link($filename)
 // returns the data a file was last edited
 function get_file_date($filename)
 {
-	return date ("d F Y H:i:s.", filemtime($filename));
+	return date ("d F Y H:i:s", filemtime($filename));
 }
 
 // returns the image size information from a file (replicates the behaviour of the standard php function
@@ -256,11 +255,11 @@ function authenticate() {
 	call('render_top');
 
 	$PAGE .=
-'<form method="post" action="'.$VAR['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
+'<div id="content"><form method="post" action="'.$VAR['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
 	Username: <input type="text" name="username" />
 	Password: <input type="password" name="password" />
 	<input type="submit" value="Login" />
-</form>';
+</form></div>';
 	call('render_bottom');
 
 	print $PAGE;
@@ -297,7 +296,6 @@ function render_top()
 	</div></div>
 <div class="center">';
 }
-
 
 // renders the bottom of the html, closing the main content div and adding the footer
 function render_bottom()
@@ -474,8 +472,8 @@ tr>:first-child {
 function page_browse()
 {
 	global $VAR, $PAGE;
-	call('render_top');
 
+	call('render_top');
 
 	// add the search box and associated javascript; and the links to the RSS and RDF pages
 	$PAGE .=
@@ -554,7 +552,6 @@ function page_resource()
 	call('render_bottom');
 }
 
-
 // return the Facebook comment widget
 function generate_comment_widget($this_url)
 {
@@ -574,7 +571,6 @@ function generate_comment_widget($this_url)
 <div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['element_size']['metadata_width'].'"></div>';
 }
 
-
 /* Return the preview widget for a given resource at the dimensions specified.
 	If the resource is determined to be an image, it renders as a simple <img> element.
 	Otherwise, it will be rendered using the googledocs previewer.
@@ -586,7 +582,6 @@ function generate_preview($params)
 	$filename = $params[0];
 	$width = $params[1];
 	$height = $params[2];
-
 
 	// get absolute url for file
 	$file_url = call('get_file_link', $filename);
@@ -694,7 +689,6 @@ function page_manage_resources()
 		}
 		$num++;
 	}
-		
 	
 	// check whether any files are missing
 	$missing_resources_html = '';
@@ -722,7 +716,6 @@ function page_manage_resources()
 
 	call('render_bottom');
 }
-
 
 // returns the html for a single item on the resource workflow
 function generate_manageable_item($params)
@@ -792,14 +785,14 @@ function generate_manageable_item($params)
 	return $item_html;
 }
 
-
 // Public function for the RSS feed
 function page_rss() {
         global $VAR;
         
         header("Content-type: application/rss+xml");
 
-        print '<?xml version="1.0" encoding="utf-8" ?>
+        print 
+'<?xml version="1.0" encoding="utf-8" ?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
   <title>RedFeather RSS</title>
   <link>'.$VAR['script_url'].'</link>
@@ -828,10 +821,86 @@ function page_rss() {
         print '</channel></rss>';
 }
 
-
 // public function for RDF
 function page_rdf() {
         global $VAR;
-	print 'Coming soon...';        
+
+	header("Content-type: application/rss+xml");
+	print 
+'<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rdf:RDF [
+	<!ENTITY dc "http://purl.org/dc/elements/1.1/">
+	<!ENTITY bibo "http://purl.org/ontology/bibo/">
+	<!ENTITY foaf "http://xmlns.com/foaf/0.1/">
+	<!ENTITY rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+	<!ENTITY dct "http://purl.org/dc/terms/">
+	<!ENTITY redf "'.$VAR['script_url'].'?page=creators#">
+	
+]>
+<rdf:RDF xmlns:dc="&dc;" xmlns:bibo="&bibo;" xmlns:foaf="&foaf;" xmlns:rdf="&rdf;" xmlns:dct="&dct;">
+';
+
+	// loop through all files which are public accessible
+        foreach(call('get_file_list') as $filename)
+	{
+		// ignore any files without metadata
+		if (!isset($VAR['data'][$filename])) continue;
+		$data = $VAR['data'][$filename];
+               
+                $resource_url = htmlentities($VAR['script_url'].'?file='.$filename);
+                $file_url = htmlentities($VAR['base_url'].$filename);
+
+		print 
+"<rdf:Description rdf:about='$resource_url'>
+    <dc:title>".$data['title']."</dc:title>
+    <dct:date>".call('get_file_date',$filename)."</dct:date>
+    <dct:hasPart rdf:resource='$file_url'/>
+    <rdf:type rdf:resource='&bibo;Document'/>
+";
+		foreach($data['creators'] as $creator)
+			print "    <dct:creator rdf:resource='&redf;".urlencode($creator)."'/>
+";
+
+		print "</rdf:Description>
+";
+        }
+
+	foreach(get_unique_creators() as $creator)
+		print 
+"<rdf:Description rdf:about='&redf;".urlencode($creator)."'>
+    <foaf:name>$creator</foaf:name>
+</rdf:Description>
+";
+
+	print '</rdf:RDF>';
 }
 
+// public function for unique people
+function page_creators() {
+	global $VAR, $PAGE;
+
+	call("render_top");
+	$PAGE .= "<div id='content'><h1>Contributors.</h1><ul>";
+	foreach (get_unique_creators() as $creator)
+	{
+		$PAGE .= "<li><a href='#".urlencode($creator)."'>$creator</a></li>";
+	}
+	$PAGE .= "</ul></div>";
+	call("render_bottom");
+
+}
+
+
+// get a list of all the unique creators
+function get_unique_creators() {
+	global $VAR;
+
+	$list = array();
+
+	foreach ($VAR['data'] as $data)
+		foreach($data['creators'] as $creator)	
+			array_push($list, $creator);
+
+	natcasesort($list);
+	return array_unique($list);
+}
