@@ -828,16 +828,7 @@ function page_rdf() {
 	header("Content-type: application/rss+xml");
 	print 
 '<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE rdf:RDF [
-	<!ENTITY dc "http://purl.org/dc/elements/1.1/">
-	<!ENTITY bibo "http://purl.org/ontology/bibo/">
-	<!ENTITY foaf "http://xmlns.com/foaf/0.1/">
-	<!ENTITY rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-	<!ENTITY dct "http://purl.org/dc/terms/">
-	<!ENTITY redf "'.$VAR['script_url'].'?page=creators#">
-	
-]>
-<rdf:RDF xmlns:dc="&dc;" xmlns:bibo="&bibo;" xmlns:foaf="&foaf;" xmlns:rdf="&rdf;" xmlns:dct="&dct;">
+<rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:bibo="http://purl.org/ontology/bibo/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dct="http://purl.org/dc/terms/">
 ';
 
 	// loop through all files which are public accessible
@@ -855,10 +846,10 @@ function page_rdf() {
     <dc:title>".$data['title']."</dc:title>
     <dct:date>".call('get_file_date',$filename)."</dct:date>
     <dct:hasPart rdf:resource='$file_url'/>
-    <rdf:type rdf:resource='&bibo;Document'/>
+    <rdf:type rdf:resource='http://purl.org/ontology/bibo/Document'/>
 ";
 		foreach($data['creators'] as $creator)
-			print "    <dct:creator rdf:resource='&redf;".urlencode($creator)."'/>
+			print "    <dct:creator rdf:resource='".$VAR['script_url']."?page=creators#".urlencode($creator)."'/>
 ";
 
 		print "</rdf:Description>
@@ -867,8 +858,9 @@ function page_rdf() {
 
 	foreach(get_unique_creators() as $creator)
 		print 
-"<rdf:Description rdf:about='&redf;".urlencode($creator)."'>
+"<rdf:Description rdf:about='".$VAR['script_url']."?page=creators#".urlencode($creator)."'>
     <foaf:name>$creator</foaf:name>
+    <foaf:type rdf:resource='http://xmlns.com/foaf/0.1/Person'/>
 </rdf:Description>
 ";
 
@@ -889,7 +881,6 @@ function page_creators() {
 	call("render_bottom");
 
 }
-
 
 // get a list of all the unique creators
 function get_unique_creators() {
