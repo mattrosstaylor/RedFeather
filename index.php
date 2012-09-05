@@ -879,8 +879,9 @@ function page_rdf() {
     <dct:hasPart rdf:resource='$file_url'/>
     <rdf:type rdf:resource='http://purl.org/ontology/bibo/Document'/>
 ";
-		foreach($data['creators'] as $creator)
-			print "    <dct:creator rdf:resource='".$VAR['script_url']."?page=creators#".urlencode($creator)."'/>
+		if (isset($data["creators"]))
+			foreach($data['creators'] as $creator)
+				print "    <dct:creator rdf:resource='".$VAR['script_url']."?page=creators#".urlencode($creator)."'/>
 ";
 
 		print "</rdf:Description>
@@ -919,9 +920,10 @@ function get_unique_creators() {
 
 	$list = array();
 
-	foreach ($VAR['data'] as $data)
-		foreach($data['creators'] as $creator)	
-			array_push($list, $creator);
+	foreach (call('get_resource_list') as $filename)
+		if (isset($VAR['data'][$filename]['creators']))
+			foreach($VAR['data'][$filename]['creators'] as $creator)	
+				array_push($list, $creator);
 
 	natcasesort($list);
 	return array_unique($list);
