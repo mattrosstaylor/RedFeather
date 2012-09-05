@@ -169,7 +169,6 @@ function load_data()
 	$VAR['data'] = unserialize(file_get_contents($VAR['metadata_filename']));
 	if(!is_array($VAR['data']) )
 		$VAR['data']= array();
-
 }
 
 /* public function to save data from the resource manager to the local file system
@@ -197,11 +196,18 @@ function page_save_data()
 	$VAR['data'] = array();
 	
 	// loop once for each resource that is being saved
-	for ($i = 0; $i < $_POST['resource_count']; $i++)
+	foreach ($_POST["ordering"] as $i)
 	{
 		// get the filename, this is used as the main index for the resource.  If no filename is posted, ignore this resource.
 		$filename = $_POST["filename$i"];
 		if ($filename == NULL) continue;
+
+		// if the resource is marked as missing, retrieve the data from the old array
+		if (in_array($i, $_POST['missing']))
+		{
+			 $VAR['data'][$filename] = $old_data[$filename];
+			continue;
+		}
 
 		// scan through each parameter in the post array
 		foreach ($_POST as $key => $value)
@@ -209,11 +215,6 @@ function page_save_data()
 			if (preg_match("/(.*)($i\$)/", $key, $matches))
 				$VAR['data'][$filename][$matches[1]] = $value;
 	}
-
-	// if a file is designated as missing, retrieve the metadata from $old_data
-	if (isset($_POST['missing']))
-		foreach ($_POST['missing'] as $missed)
-			$VAR['data'][$missed] = $old_data[$missed];
 
 	// save the array as serialized PHP
 	$fh = fopen($VAR['metadata_filename'], 'w');
@@ -228,6 +229,18 @@ function page_save_data()
 	End of functions to interact with the local file system.
 */
 
+// function to get a list of all the existing files
+function get_resource_list()
+{
+	global $VAR;
+	$list = array();
+	$files = call('get_file_list');
+
+	foreach ($VAR['data'] as $filename => $data)
+		if (in_array($filename, $files)) array_push($list, $filename);
+
+	return $list;
+} 
 
 // function to provide simple authentication functionality
 function authenticate() {
@@ -381,7 +394,7 @@ a:hover, a:active {
 #content {
 	padding: 6px 0 6px 0;
 }
-.new_resources {
+.new_resource {
 	border-left: 1px dashed $linkcolor;
 	padding-left: 6px;
 	margin-bottom: 6px; 
@@ -498,12 +511,9 @@ function page_browse()
 	$PAGE .= '<div class="browse_list">';
 
 	// get the list of all files within the RedFeather scope
-	foreach(call('get_file_list') as $filename)
+	foreach(call('get_resource_list') as $filename)
 	{
-		// if there is no data for this file, skip it
-		if (!isset($VAR['data'][$filename])) continue;
-		
-		// otherwise, retrieve the data and render the resource using the "generate_metadata_table" function
+		// retrieve the data and render the resource using the "generate_metadata_table" function
 		$data = $VAR['data'][$filename];
 		$url = $VAR['script_url']."?file=$filename";
 		$PAGE .= 
@@ -656,27 +666,26 @@ function page_manage_resources()
 
 	call('authenticate');
 	call('render_top');
-
+	
 	// counter for the number of new files detected
 	$new_file_count = 0;
 	// counter for the total number of files
 	$num = 0;
-	// html for existing resources 
-	$page_manage_resources_html = '';
-	// html for new resources
-	$new_resources_html = '';
-
 	// list for files that were present in the filesystem	
 	$files_found_list = array();
- 
-	$PAGE .= "<div id='content'><h1>Manage Resources</h1><form action='".$VAR['script_filename']."?page=save_data' method='POST'>\n";
+	// buffer for copying manageable resources
+	$resource_html = "";
 
+	$PAGE .= "<div id='content'><h1>Manage Resources</h1><form action='".$VAR['script_filename']."?page=save_data' method='POST'>\n";
+	
 	// iterate through all the files currently present in the filesystem	
 	foreach (call('get_file_list') as $filename)
 	{
+		// numbered field used for ordering
+		$order_marker = "<input type='hidden' name='ordering[]' value='$num'/>";
+
 		// if the metadata exists for the file, render the workflow item and add it to the list of found files
 		if (isset($VAR['data'][$filename])) {
-			$page_manage_resources_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($VAR['data'][$filename], $num))."</div>";
 			array_push($files_found_list, $filename);
 		}
 		else
@@ -684,38 +693,63 @@ function page_manage_resources()
 			// if the file exists but the metadata doesn't, render a new workflow item with the default metadata
 			$data = $VAR['default_metadata'];
 			$data['filename'] = $filename;
-			$new_resources_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($data, $num))."</div>";
+			$resource_html .= "<div class='manageable new_resource' id='resource$num'>".call('generate_manageable_item', array($data, $num))."$order_marker</div>";
 			$new_file_count++;
+			$num++;
 		}
-		$num++;
 	}
-	
-	// check whether any files are missing
-	$missing_resources_html = '';
-	$missing_num = 0;
 
+	
 	// loop through all the metadata entries
 	foreach ($VAR['data'] as $key => $value) {
-		// if file doesn't exist in the filesystem, render it as a missing resource and incremenet the missing resource counter 
-		if (!in_array($key, $files_found_list))
-		{
-			$missing_resources_html .= "<div class='manageable' id='missing$missing_num'><p>Resource not found: $key <a href='#' onclick='javascript:$(\"#missing$missing_num\").remove();return false;'>delete metadata</a></p><input type='hidden' name='missing[]' value='$key'/></div>";
-			$missing_num++;
-		}
+
+		// numbered field used for ordering
+		$order_marker = "<input type='hidden' name='ordering[]' value='$num'/>";
+
+		// something
+		if (in_array($key, $files_found_list))
+			$resource_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($VAR['data'][$key], $num))."$order_marker</div>";
+		else
+			$resource_html .= "<div class='manageable' id='resource$num'><h1>$key</h1><p>Resource not found <a href='#' onclick='javascript:$(\"#resource$num\").remove();return false;'>delete metadata</a></p><input type='hidden' name='filename$num' value='$key'/><input type='hidden' name='missing[]' value='$num'/>$order_marker</div>";
+		$num++;
 	}
 
-	// build the page by combining the component lists, with missing resources at the top, followed by new files, followed by existing items	
-	$PAGE .= $missing_resources_html;
-	if ($new_file_count) $PAGE .= "<div class='new_resources'><p>$new_file_count new files found.</p>".$new_resources_html."</div>";
-	$PAGE .= "<div>$page_manage_resources_html</div>";
-	
-	// add total number of resources to the as a hidden field
-	$PAGE .= "<input type='hidden' name='resource_count' value='$num'/>";
+	if ($new_file_count) $PAGE .= "<p>$new_file_count new files found.</p>";
+
+	$PAGE .= $resource_html;
+
+	// add save button
 	$PAGE .= "<input type='submit' value='Save'/>";
 	$PAGE .= "</form></div>";
 
+	// adding the javascript for up/down arrows
+	$PAGE .= <<<EOT
+<script type='text/javascript'>
+	$(document).ready(function() {
+		$('<div style="text-size:8px;"><a href="#" class="up">up</a>/<a href="#" class="down">down</a></div>').insertAfter('.manageable > h1');
+		$('.up').click(function() {
+			var item = $(this).parent().parent();
+			var other = item.prev('.manageable');
+			if (other.html() == null) return false;
+			item.detach().insertBefore(other);
+			return false;
+		});
+		$('.down').click(function() {
+			var item = $(this).parent().parent();
+			var other = item.next('.manageable');
+			if (other.html() == null) return false;
+			item.detach().insertAfter(other);
+			return false;
+		});
+
+	});
+</script>
+EOT;
 	call('render_bottom');
 }
+
+
+
 
 // returns the html for a single item on the resource workflow
 function generate_manageable_item($params)
@@ -751,7 +785,7 @@ function generate_manageable_item($params)
 	// add the new creator button
 	$item_html .= "
 	<tr id='addcreator$num'>
-		<td><a creator$num' href='#' onclick='javascript:add_creator($num);return false;'>add new creator</a></td>
+		<td><a creator$num' href='#' onclick='javascript:add_creator$num();return false;'>add new creator</a></td>
 	</tr>
 </table>
 ";
@@ -772,15 +806,16 @@ function generate_manageable_item($params)
 
 	// add the javascript function for the creator widget
 	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
-	$item_html .= '
-<script type="text/javascript">
-	function add_creator($num) {
-		var creators = $("#creators" +$num);
-		var addcreator = $("#addcreator" +$num);
-		creators.append("<tr><td><input name=\'creators" +$num +"[]\' autocomplete=\'off\' /></td><td><input name=\'emails" +$num +"[]\' autocomplete=\'off\' /></td><td><a href=\'#\' onclick=\'javascript:$(this).parent().parent().remove(); return false;\'>remove</a></td></tr>");
+	$item_html .= <<<EOT
+<script type='text/javascript'>
+	function add_creator$num() {
+		var creators = $("#creators$num");
+		var addcreator = $("#addcreator$num");
+		creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
 		addcreator.remove().appendTo(creators);
 	}
-</script>';
+</script>
+EOT;
 
 	return $item_html;
 }
@@ -801,10 +836,8 @@ function page_rss() {
   <language>en</language>
 ';
 	// loop through all files which are public accessible
-        foreach(call('get_file_list') as $filename)
+        foreach(call('get_resource_list') as $filename)
 	{
-		// ignore any files without metadata
-		if (!isset($VAR['data'][$filename])) continue;
 		$data = $VAR['data'][$filename];
                
                 $resource_url = htmlentities($VAR['script_url'].'?file='.$filename);
@@ -825,17 +858,15 @@ function page_rss() {
 function page_rdf() {
         global $VAR;
 
-	header("Content-type: application/rss+xml");
+	header("Content-type: application/rdf+xml");
 	print 
 '<?xml version="1.0" encoding="UTF-8"?>
 <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:bibo="http://purl.org/ontology/bibo/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dct="http://purl.org/dc/terms/">
 ';
 
 	// loop through all files which are public accessible
-        foreach(call('get_file_list') as $filename)
+        foreach(call('get_resource_list') as $filename)
 	{
-		// ignore any files without metadata
-		if (!isset($VAR['data'][$filename])) continue;
 		$data = $VAR['data'][$filename];
                
                 $resource_url = htmlentities($VAR['script_url'].'?file='.$filename);
