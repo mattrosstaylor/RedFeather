@@ -44,6 +44,17 @@ $PAGE = '';
 	End of RedFeather configuration 
 */
 
+// field definitions
+$VAR['fields'] = array(
+	'title',
+	'description',
+	'creators',
+	'date',
+	'license',
+	'download',
+);
+
+
 // List of available licenses for RedFeather
 $VAR['licenses'] = array(
 	''=>'unspecified',
@@ -76,7 +87,7 @@ $VAR['script_url'] = $VAR['base_url'].$VAR['script_filename'];
 // The file used for storing the resource metadata
 $VAR['metadata_filename'] = "resourcedata";
 // The name of the plugins folder
-$VAR['plugin_dir'] = "plugins2";
+$VAR['plugin_dir'] = "plugins";
 
 // Maps function names to functions, this allows you to override any RedFeather function.
 $function_map = array(
@@ -94,6 +105,19 @@ function call($function, $param=null)
 		return call_user_func($function_map[$function], $param);
 	else return call_user_func($function, $param);
 }
+
+// as above but doesn't give an error if a non-existent function is called
+function call_optional($function, $param=null)
+{
+	global $function_map;
+	if (isset($function_map[$function]))
+		return call_user_func($function_map[$function], $param);
+	else if (function_exists($function))
+		return call_user_func($function, $param);
+	else return;
+}
+
+
 
 // If a plugin directory exists, open it and include any php files it contains.
 // Some variables and functions could be overwritten at this point, depending on the plugins installed.
@@ -178,7 +202,9 @@ function load_data()
 	These fields are indexed in the post array using a concatentation of the fieldname and the resource number.
 	Thus, the filename of the 3rd resource is $_POST['filename3'] and the description of the 2nd is $_POST['description2'].
 	Arrays are treated in exactly the same way as single values and can be saved without issue.
-	Files that are designated as "missing" will have their metadata retained even if they are not part of the main POST. */
+	Files that are designated as "missing" will have their metadata retained even if they are not part of the main POST.
+	The ordering array contains the ids of all the submitted resources in the order they should be saved.
+ */
 function page_save_data()
 {
 	global $VAR;
@@ -229,7 +255,7 @@ function page_save_data()
 	End of functions to interact with the local file system.
 */
 
-// function to get a list of all the existing files
+// function to get a list of all the complete resources (i.e. with matching file/metadata)
 function get_resource_list()
 {
 	global $VAR;
@@ -268,11 +294,12 @@ function authenticate() {
 	call('render_top');
 
 	$PAGE .=
-'<div id="content"><form method="post" action="'.$VAR['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
-	Username: <input type="text" name="username" />
-	Password: <input type="password" name="password" />
-	<input type="submit" value="Login" />
-</form></div>';
+		'<div id="content"><form method="post" action="'.$VAR['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
+			Username: <input type="text" name="username" />
+			Password: <input type="password" name="password" />
+			<input type="submit" value="Login" />
+		</form></div>';
+
 	call('render_bottom');
 
 	print $PAGE;
@@ -289,32 +316,38 @@ function render_top()
 
 	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
 	$PAGE .= 
-'<html><head>
-	<title>'.$VAR['page_title'].'</title>
-	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-	<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
-	<style type="text/css">'.call('generate_stylesheet').'</style>	
-</head><body>
-<div id="header"><div class="center">
-	<h1><a href="'.$VAR['script_url'].'">
-		<span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'
-	</a></h1>';
+		'<html><head>
+			<title>'.$VAR['page_title'].'</title>
+			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+			<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
+			<style type="text/css">'.call('generate_stylesheet').'</style>	
+		</head>
+		<body>
+			<div id="header"><div class="center">
+				<h1><a href="'.$VAR['script_url'].'">
+					<span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'
+				</a></h1>';
 
 	// add the optional 'return link' as documented in the RedFeather configuration section
 	if (isset($VAR['return_link']))
 		$PAGE .= '<a style="float:right;" href="'.$VAR['return_link']['href'].'">'.$VAR['return_link']['text'].'</a>';
 
 	$PAGE .= '
-	<h2>'.$VAR['header_text'][2].'</h2>
-	</div></div>
-<div class="center">';
+				<h2>'.$VAR['header_text'][2].'</h2>
+			</div></div>
+			<div class="center">';
 }
 
 // renders the bottom of the html, closing the main content div and adding the footer
 function render_bottom()
 {
 	global $VAR, $PAGE;
-	$PAGE .= '</div><div id="footer"><div class="center">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a></div></div></html>';
+	$PAGE .= '
+			</div>
+			<div id="footer">
+				<div class="center">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a></div>
+			</div>
+		</html>';
 }
 
 // returns the default stylesheet for RedFeather
@@ -333,7 +366,8 @@ function generate_stylesheet()
 	$metadata_width = $VAR['element_size']['metadata_width']."px";
 	$metadata_gap = $VAR['element_size']['metadata_gap']."px";
 	$page_width = $VAR['element_size']['preview_width']+$VAR['element_size']['metadata_gap']+$VAR['element_size']['metadata_width']."px";
-	return "
+
+	return <<<EOT
 body { 
 	font-family: $font;
 	font-size: 14px;
@@ -473,7 +507,7 @@ tr>:first-child {
 	vertical-align: center;
 	margin-bottom: 6px;
 }
-";
+EOT;
 }
 
 /*
@@ -490,21 +524,21 @@ function page_browse()
 
 	// add the search box and associated javascript; and the links to the RSS and RDF pages
 	$PAGE .=
-'<div id="content"><div class="browse_tools">
-	Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
-	<script type="text/javascript">
-		function filter(){
-			var filter = $("#filter").val();
-			if(filter == ""){
-				$(".resource").show();	
-				return;
-			}
-			$(".resource").hide();
-			$(".resource:contains("+$("#filter").val()+")").show();
-		}
-	</script>
-	'.call('render_browse_toolbar').'
-</div>';
+		'<div id="content"><div class="browse_tools">
+			Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
+			<script type="text/javascript">
+				function filter(){
+					var filter = $("#filter").val();
+					if(filter == ""){
+						$(".resource").show();	
+						return;
+					}
+					$(".resource").hide();
+					$(".resource:contains("+$("#filter").val()+")").show();
+				}
+			</script>
+			'.call('render_browse_toolbar').'
+		</div>';
 
 	// div for resource list
 	$PAGE .= '<div class="browse_list">';
@@ -516,11 +550,11 @@ function page_browse()
 		$data = $VAR['data'][$filename];
 		$url = $VAR['script_url']."?file=$filename";
 		$PAGE .= 
-"<div class='resource'>
-	<h1><a href='$url'>{$data['title']}</a></h1>
-	<p>{$data['description']}</p>
-	".call('generate_metadata_table', $data)."
-</div>";
+			"<div class='resource'>
+				<h1><a href='$url'>{$data['title']}</a></h1>
+				<p>{$data['description']}</p>
+				".call('generate_metadata_table', $data)."
+			</div>";
 	}
 	$PAGE .= '</div></div>';
 
@@ -541,14 +575,15 @@ function page_resource()
 {
 	global $VAR, $PAGE;
 
+	call('render_top');	
+	
 	// check that the file requested actually exists
 	if (!isset($_REQUEST['file']) || !isset($VAR['data'][$_REQUEST['file']]))
 	{
 		$PAGE .= 'Invalid resource.';
+		call('render_bottom');
 		return;
 	}
-
-	call('render_top');	
 
 	// get the resource metadata and compute urls
 	$data = $VAR['data'][$_REQUEST['file']];
@@ -556,16 +591,16 @@ function page_resource()
 	$file_url = call('get_file_link', $data['filename']); 
 
 	$PAGE .=
-'<div id="content">
-	<div class="metadata">
-		<h1>'.$data['title'].'</h1>
-		<p>'.$data['description'].'</p>
-		'.call('generate_metadata_table', $data).'
-		'.call('generate_comment_widget', $this_url).'
-	</div>
-	<div id="preview">'.call('generate_preview', array($data['filename'], $VAR['element_size']['preview_width'], $VAR['element_size']['preview_height'])).'</div>
-	<div class="clearer"></div>
-</div>';
+		'<div id="content">
+			<div class="metadata">
+				<h1>'.$data['title'].'</h1>
+				<p>'.$data['description'].'</p>
+				'.call('generate_metadata_table', $data).'
+				'.call('generate_comment_widget', $this_url).'
+			</div>
+			<div id="preview">'.call('generate_preview', array($data['filename'], $VAR['element_size']['preview_width'], $VAR['element_size']['preview_height'])).'</div>
+			<div class="clearer"></div>
+		</div>';
 
 	call('render_bottom');
 }
@@ -576,17 +611,17 @@ function generate_comment_widget($this_url)
 	global $VAR;
 
 	return '
-<div id="fb-root"></div>
-<script>
-	(function(d, s, id) {
-		var js, fjs = d.getElementsByTagName(s)[0];
-		if (d.getElementById(id)) return;
-		js = d.createElement(s); js.id = id;
-		js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
-		fjs.parentNode.insertBefore(js, fjs);
-	}(document, "script", "facebook-jssdk"));
-</script>
-<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['element_size']['metadata_width'].'"></div>';
+		<div id="fb-root"></div>
+		<script>
+			(function(d, s, id) {
+				var js, fjs = d.getElementsByTagName(s)[0];
+				if (d.getElementById(id)) return;
+				js = d.createElement(s); js.id = id;
+				js.src = "//connect.facebook.net/en_GB/all.js#xfbml=1";
+				fjs.parentNode.insertBefore(js, fjs);
+			}(document, "script", "facebook-jssdk"));
+		</script>
+		<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['element_size']['metadata_width'].'"></div>';
 }
 
 /* Return the preview widget for a given resource at the dimensions specified.
@@ -620,14 +655,14 @@ function generate_preview($params)
 	{
 		// create error message in case the widget fails to load
 		$error_fallback = "
-<script>
-	window.setTimeout('preview_fallback()', 10000);
-	function preview_fallback() {
-		var d = document.getElementById('preview');
-		d.className = d.className + ' message_inserted';
-	}
-</script>
-<div class='message'><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>";
+			<script>
+				function preview_fallback() {
+					var d = document.getElementById('preview');
+					d.className = d.className + ' message_inserted';
+				}
+				window.setTimeout('preview_fallback()', 10000);
+			</script>
+			<div class='message'><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>";
 	
 		// place the error message directly underneath the widget
 		return $error_fallback.'<iframe src="http://docs.google.com/viewer?embedded=true&url='.urlencode($file_url).'"></iframe>';
@@ -639,27 +674,14 @@ function generate_metadata_table($data)
 {
 	global $VAR;
 	$table = '<table class="metadata_table"><tbody>';
-
-	// check that the creator field exists and not an empty placeholder
-	if (isset($data['creators']) && trim($data['creators'][0]) != '')
+	
+	//  fields
+	foreach ($VAR['fields'] as $fieldname)
 	{
-		// table header should be creator/creators depending on size of array
-		$table .= '<tr><td>Creator' .((sizeof($data['creators'])>1) ? 's': '').':</td><td>';
-		// loop through each creator name and create a mailto link for them if required
-		for ($i = 0; $i < sizeof($data['creators']); $i++)
-			if (trim($data['emails'][$i]) == '')
-				$table .= $data['creators'][$i].'<br/>';
-			else
-				$table .= '<a href="mailto:'.$data['emails'][$i].'">'.$data['creators'][$i].'</a><br/>';
-		$table .= '</td></tr>';
+		$table .= call_optional("generate_field_output_$fieldname", $data);
 	}
 
-	// add the other metadata fields
-	$table .='
-		<tr><td>Updated:</td><td>'.call('get_file_date', $data['filename']).'</td></tr>
-		<tr><td>License:</td><td>'.$VAR['licenses'][$data['license']].'</td></tr>
-		<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', $data['filename']).'">'.$data['filename'].'</a></td></tr>
-	</tbody></table>';
+	$table .= '</tbody></table>';
 	return $table;
 }
 
@@ -684,7 +706,7 @@ function page_manage_resources()
 	// buffer for copying manageable resources
 	$resource_html = "";
 
-	$PAGE .= "<div id='content'><h1>Manage Resources</h1><form action='".$VAR['script_filename']."?page=save_data' method='POST'>\n";
+	$PAGE .= "<div id='content'><h1>Manage Resources</h1><form action='".$VAR['script_filename']."?page=save_data' method='POST'>";
 	
 	// iterate through all the files currently present in the filesystem	
 	foreach (call('get_file_list') as $filename)
@@ -756,9 +778,6 @@ EOT;
 	call('render_bottom');
 }
 
-
-
-
 // returns the html for a single item on the resource workflow
 function generate_manageable_item($params)
 {
@@ -769,20 +788,100 @@ function generate_manageable_item($params)
 
 	// render the basic fields
 	$item_html = "
-<h1><a href='".call('get_file_link', $data['filename'])."' target='_blank'>".$data['filename']."</a></h1>
-<input type='hidden' name='filename$num' value='".$data['filename']."' />
-<table>
-	<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>
-	<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>
-	<tr><td>Creators</td><td>
-		<table id='creators$num' class='creators'><tr><th>Name</th><th>Email</th><th/></tr>";
+		<h1><a href='".call('get_file_link', $data['filename'])."' target='_blank'>".$data['filename']."</a></h1>
+		<input type='hidden' name='filename$num' value='".$data['filename']."' />
+		<table>";
+		
+	// optional fields
+	foreach ($VAR['fields'] as $fieldname)
+	{
+		$item_html .= call_optional("generate_field_input_$fieldname", array($data, $num));
+	}
+	$item_html .= "</table>";
+
+
+	return $item_html;
+}
+
+/*
+	Metadata table field definitions
+*/
+function generate_field_output_creators($data)
+{
+	$html = '';
+	// check that the creator field exists and not an empty placeholder
+	if (isset($data['creators']) && trim($data['creators'][0]) != '')
+	{
+		// table header should be creator/creators depending on size of array
+		$html .= '<tr><td>Creator' .((sizeof($data['creators'])>1) ? 's': '').':</td><td>';
+		// loop through each creator name and create a mailto link for them if required
+		for ($i = 0; $i < sizeof($data['creators']); $i++)
+			if (trim($data['emails'][$i]) == '')
+				$html .= $data['creators'][$i].'<br/>';
+			else
+				$html .= '<a href="mailto:'.$data['emails'][$i].'">'.$data['creators'][$i].'</a><br/>';
+		$html .= '</td></tr>';
+	}
+
+	return $html;
+}
+
+function generate_field_output_date($data)
+{
+	return '<tr><td>Updated:</td><td>'.call('get_file_date', $data['filename']).'</td></tr>';
+}
+
+function generate_field_output_license($data)
+{
+	global $VAR;
+	return '<tr><td>License:</td><td>'.$VAR['licenses'][$data['license']].'</td></tr>';
+}
+
+function generate_field_output_download($data)
+{
+	return '<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', $data['filename']).'">'.$data['filename'].'</a></td></tr>';
+}
+
+/*
+	Resource manager field definitions
+*/
+function generate_field_input_title($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	return "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
+}
+
+function generate_field_input_description($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	return "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>";
+}
+
+function generate_field_input_creators($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	$html = "
+		<tr>
+			<td>Creators</td>
+			<td>
+				<table id='creators$num' class='creators'>
+					<tr>
+						<th>Name</th>
+						<th>Email</th>
+					</tr>";
 
 	// check if there are creators currently set for this resource
 	if (isset($data['creators']))
 		// loop through the creators and create the creator/email table rows
 		for ($i = 0; $i < sizeof($data['creators']); $i++)
 		{
-			$item_html .= "
+			$html .= "
 				<tr>
 					<td><input name='creators".$num."[]' value='".$data['creators'][$i]."' autocomplete='off' /></td>
 					<td><input name='emails".$num."[]' value='".$data['emails'][$i]."' autocomplete='off' /></td>
@@ -791,12 +890,36 @@ function generate_manageable_item($params)
 
 		}
 	// add the new creator button
-	$item_html .= "
-	<tr id='addcreator$num'>
-		<td><a creator$num' href='#' onclick='javascript:add_creator$num();return false;'>add new creator</a></td>
-	</tr>
-</table>
-";
+	$html .= "
+					<tr id='addcreator$num'>
+						<td><a creator$num' href='#' onclick='javascript:add_creator$num();return false;'>add new creator</a></td>
+					</tr>
+				</table>
+			</td>
+		</tr>";
+
+	// add the javascript function for the creator widget
+	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
+	$html .= <<<EOT
+<script type='text/javascript'>
+	function add_creator$num() {
+		var creators = $("#creators$num");
+		var addcreator = $("#addcreator$num");
+		creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
+		addcreator.remove().appendTo(creators);
+	}
+</script>
+EOT;
+
+	return $html;
+}
+
+function generate_field_input_license($params)
+{
+	global $VAR;
+	$data = $params[0];
+	$num = $params[1];
+
 	// add license dropdown box
 	$license_options = "";
 	foreach ($VAR['licenses'] as $key => $value)	
@@ -809,62 +932,81 @@ function generate_manageable_item($params)
 		$license_options .= "<option value='$key' $selected autocomplete='off'>$value</option>";
 	}
 
-	$item_html .= "<tr><td class='table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
-	$item_html .= "</table>";
-
-	// add the javascript function for the creator widget
-	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
-	$item_html .= <<<EOT
-<script type='text/javascript'>
-	function add_creator$num() {
-		var creators = $("#creators$num");
-		var addcreator = $("#addcreator$num");
-		creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
-		addcreator.remove().appendTo(creators);
-	}
-</script>
-EOT;
-
-	return $item_html;
+	return "<tr><td class='table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
 }
 
 // Public function for the RSS feed
 function page_rss() {
-        global $VAR;
+	global $VAR;
         
-        header("Content-type: application/rss+xml");
+	header("Content-type: application/rss+xml");
 
-        print 
+	print 
 '<?xml version="1.0" encoding="utf-8" ?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
-  <title>RedFeather RSS</title>
-  <link>'.$VAR['script_url'].'</link>
-  <atom:link rel="self" href="'.$VAR['script_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
-  <description></description>
-  <language>en</language>
+	<title>'.$VAR['header_text'][0].$VAR['header_text'][1].'</title>
+	<link>'.$VAR['script_url'].'</link>
+	<atom:link rel="self" href="'.$VAR['script_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
+	<description>'.$VAR['header_text'][2].'</description>
+	<language>en</language>
 ';
 	// loop through all files which are public accessible
-        foreach(call('get_resource_list') as $filename)
+	foreach(call('get_resource_list') as $filename)
 	{
 		$data = $VAR['data'][$filename];
-               
-                $resource_url = htmlentities($VAR['script_url'].'?file='.$filename);
-                print '<item><pubDate>';
-                print call('get_file_date', $filename);
-                print '</pubDate>
-  <title>'.htmlentities($data['title']).'</title>
-  <link>'.$resource_url.'</link>
-  <guid>'.$resource_url.'</guid>
-  <description>'.htmlentities($data['description']).'</description>
-</item>';
+                print '	<item>
+';
+		//  fields
+		foreach ($VAR['fields'] as $fieldname)
+		{
+			print call_optional("generate_field_rss_$fieldname", $data);
+		}
+		print '	</item>
+';
         }
 
-        print '</channel></rss>';
+	print '</channel></rss>';
 }
+
+/*
+	Field definitions for RSS output
+*/
+function generate_field_rss_title($data)
+{
+	return '		<title>'.htmlentities($data['title']).'</title>
+';
+}
+
+function generate_field_rss_description($data)
+{
+	return '		<description>'.htmlentities($data['description']).'</description>
+';
+}
+
+function generate_field_rss_date($data)
+{
+	return '		<pubDate>'.call('get_file_date', $data['filename']).'</pubDate>
+';
+}
+
+function generate_field_rss_download($data)
+{
+	global $VAR;
+	$resource_url = htmlentities($VAR['script_url'].'?file='.$data['filename']);
+	return '		<link>'.$resource_url.'</link>
+		<guid>'.$resource_url.'</guid>
+';
+}
+
 
 // public function for RDF
 function page_rdf() {
         global $VAR;
+
+	if (isset($_REQUEST['file']))
+		$resource_list = array($_REQUEST['file']);
+	else
+		$resource_list = call('get_resource_list');
 
 	header("Content-type: application/rdf+xml");
 	print 
@@ -873,38 +1015,105 @@ function page_rdf() {
 ';
 
 	// loop through all files which are public accessible
-        foreach(call('get_resource_list') as $filename)
+        foreach($resource_list as $filename)
 	{
 		$data = $VAR['data'][$filename];
-               
-                $resource_url = htmlentities($VAR['script_url'].'?file='.$filename);
-                $file_url = htmlentities($VAR['base_url'].$filename);
+		$resource_uri = htmlentities($VAR['script_url'].'?file='.$filename);
 
-		print 
-"<rdf:Description rdf:about='$resource_url'>
-    <dc:title>".$data['title']."</dc:title>
-    <dct:date>".call('get_file_date',$filename)."</dct:date>
-    <dct:hasPart rdf:resource='$file_url'/>
-    <rdf:type rdf:resource='http://purl.org/ontology/bibo/Document'/>
-";
-		if (isset($data["creators"]))
-			foreach($data['creators'] as $creator)
-				print "    <dct:creator rdf:resource='".$VAR['script_url']."?page=creators#".urlencode($creator)."'/>
-";
+		//  fields
+		foreach ($VAR['fields'] as $fieldname)
+		{
+			print call_optional("generate_field_rdf_$fieldname", array($data, $resource_uri));
+		}
 
-		print "</rdf:Description>
-";
-        }
-
-	foreach(get_unique_creators() as $creator)
-		print 
-"<rdf:Description rdf:about='".$VAR['script_url']."?page=creators#".urlencode($creator)."'>
-    <foaf:name>$creator</foaf:name>
-    <foaf:type rdf:resource='http://xmlns.com/foaf/0.1/Person'/>
-</rdf:Description>
-";
+	}
 
 	print '</rdf:RDF>';
+}
+
+
+
+/*
+	Field definitions for RDF output
+*/
+function generate_field_rdf_title($params)
+{
+	$data = $params[0];
+	$resource_uri = $params[1];
+
+	return 
+"	<rdf:Description rdf:about='$resource_uri'>
+		<dc:title>".$data['title']."</dc:title>
+	</rdf:Description>
+";
+
+}
+
+function generate_field_rdf_description($params)
+{
+	$data = $params[0];
+	$resource_uri = $params[1];
+
+	return 
+"	<rdf:Description rdf:about='$resource_uri'>
+		<dc:description>".$data['description']."</dc:description>
+	</rdf:Description>
+";
+}
+
+function generate_field_rdf_creators($params)
+{
+	global $VAR;
+	$data = $params[0];
+	$resource_uri = $params[1];
+
+	$xml = '';
+	if (isset($data["creators"]))
+			foreach($data['creators'] as $creator)
+			{
+				$creator_uri = $VAR['script_url']."?page=creators#".urlencode($creator);
+				$xml .=
+"	<rdf:Description rdf:about='$resource_uri'>
+		<dct:creator rdf:resource='$creator_uri'/>
+	</rdf:Description>
+";
+
+				$xml .=
+"	<rdf:Description rdf:about='$creator_uri'>
+		<foaf:name>$creator</foaf:name>
+		<foaf:type rdf:resource='http://xmlns.com/foaf/0.1/Person'/>
+	</rdf:Description>
+";
+			}
+	return $xml;
+}
+
+function generate_field_rdf_date($params)
+{
+	$data = $params[0];
+	$resource_uri = $params[1];
+
+	return 
+"	<rdf:Description rdf:about='$resource_uri'>
+		<dct:date>".call_optional('get_file_date',$data['filename'])."</dct:date>
+	</rdf:Description>
+";
+}
+
+function generate_field_rdf_download($params)
+{
+	global $VAR;
+	$data = $params[0];
+	$resource_uri = $params[1];
+
+	$file_url = htmlentities($VAR['base_url'].$data['filename']);
+
+	return 
+"	<rdf:Description rdf:about='$resource_uri'>
+		<dct:hasPart rdf:resource='$file_url'/>
+		<rdf:type rdf:resource='http://purl.org/ontology/bibo/Document'/>
+	</rdf:Description>
+";
 }
 
 // public function for unique people
