@@ -503,8 +503,7 @@ function page_browse()
 			$(".resource:contains("+$("#filter").val()+")").show();
 		}
 	</script>
-	<a href="'.$VAR['script_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>
-	<a href="'.$VAR['script_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>
+	'.call('render_browse_toolbar').'
 </div>';
 
 	// div for resource list
@@ -526,6 +525,15 @@ function page_browse()
 	$PAGE .= '</div></div>';
 
 	call('render_bottom');
+}
+
+
+// Get the toolbar for the browse view toolbar
+function render_browse_toolbar()
+{
+	global $VAR;
+	return '<a href="'.$VAR['script_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>
+        	<a href="'.$VAR['script_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
 }
 
 // View the resource preview, metadata and social networking plugin
