@@ -233,7 +233,7 @@ function page_save_data()
 		if ($filename == NULL) continue;
 
 		// if the resource is marked as missing, retrieve the data from the old array
-		if (in_array($i, $_POST['missing']))
+		if (isset($_POST['missing']) && in_array($i, $_POST['missing']))
 		{
 			 $VAR['data'][$filename] = $old_data[$filename];
 			continue;
@@ -776,14 +776,9 @@ function page_resource()
 
 	$PAGE .=
 		'<div id="content">
-			<div class="metadata">';
-//				<h1>'.$data['title'].'</h1>
-//				<p>'.$data['description'].'</p>
-//				'.call('generate_metadata_table', $data).
-//				'.call('generate_comment_widget', $this_url).'
-//	$PAGE .= call('generate_toolbar', 'resource');
-
-	$PAGE .='	</div>
+			<div class="metadata">
+			'.call('generate_toolbar', 'resource').'
+			</div>
 			<div id="preview">'.call('generate_preview', array($data['filename'], $VAR['element_size']['preview_width'], $VAR['element_size']['preview_height'])).'</div>
 			<div class="clearer"></div>
 		</div>';
@@ -802,8 +797,11 @@ function generate_toolbar_item_resource_metadata()
 		'.call('generate_metadata_table', $data);
 }
 
-function generate_toolbar_item_resource_widget()
+function generate_toolbar_item_resource_comments()
 {
+	global $VAR;
+	$data = $VAR['data'][$_REQUEST['file']];
+
 	$this_url = $VAR["script_url"].'?file='.$data['filename'];
 	return call('generate_comment_widget', $this_url);
 }
