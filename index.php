@@ -105,6 +105,8 @@ $FUNCTION_OVERRIDE = array(
 
 // global variable to store resource data
 $DATA = array();
+// global variable for page title
+$TITLE = $CONF['repository_name'];
 // global variable to buffer main body html
 $BODY = '';
 // global variable to buffer CSS
@@ -121,7 +123,9 @@ function call($function, $param=null)
 	global $FUNCTION_OVERRIDE;
 	if (isset($FUNCTION_OVERRIDE[$function]))
 		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
-	else return call_user_func($function, $param);
+	else if (function_exists($function))
+		return call_user_func($function, $param);
+	else call_optional('fourohfour');
 }
 
 // as above but doesn't give an error if a non-existent function is called
@@ -200,7 +204,6 @@ function get_resource_list()
 function page_css()
 {
 	global $CONF, $CSS;
-
 	$page_width = $CONF['element_size']['preview_width']+$CONF['element_size']['metadata_gap']+$CONF['element_size']['metadata_width'];
 
 	// base CSS
@@ -336,7 +339,6 @@ EOT;
 function page_javascript()
 {
 	global $JS;
-
 	header('Content-type: text/javascript');
 	print $JS;
 }
@@ -344,12 +346,12 @@ function page_javascript()
 // render using template
 function render_template()
 {
-	global $CONF, $BODY, $CSS, $JS;
+	global $CONF, $BODY, $TITLE, $CSS, $JS;
 
 	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
 	print 
 		'<html><head>
-			<title>'.$CONF['repository_name'].'</title>
+			<title>'.$TITLE.'</title>
 			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 			<script src="index.php?page=javascript" type="text/javascript"></script>
 			<link rel="stylesheet" type="text/css" href="index.php?page=css"/>
@@ -387,6 +389,16 @@ function generate_toolbar_item_footer_resource_manager()
 {
 	global $CONF;
 	return '<a href="'.$CONF['script_url'].'?page=resource_manager">Resource Manager</a>';
+}
+
+// output a 404 page
+function fourohfour()
+{
+	global $BODY, $TITLE;
+	$TITLE = '404 - '.$TITLE;
+	$BODY .= "<div id='content'><h1>404</h1><p>That page doesn't exist.</p></div>";
+	header('Status: 404 Not Found');	
+	call('render_template');
 }
 
 
@@ -527,7 +539,7 @@ EOT;
 function page_browse()
 {
 	global $CONF, $DATA, $BODY;
-	
+
 	$BODY .= '<div id="content">'.call('generate_toolbar', 'browse');
 	
 	// div for resource list
@@ -576,19 +588,19 @@ function generate_toolbar_item_browse_rdf()
 // View the resource preview, metadata and social networking plugin
 function page_resource()
 {
-	global $CONF, $DATA, $BODY;
+	global $CONF, $DATA, $BODY, $TITLE;
 	
 	// check that the file requested actually exists
 	if (!isset($_REQUEST['file']) || !isset($DATA[$_REQUEST['file']]))
 	{
-		$BODY .= 'Invalid resource.';
-		call('render_template');
+		call('fourohfour');
 		return;
 	}
 
 	// get the resource metadata and compute urls
 	$data = $DATA[$_REQUEST['file']];
 
+	$TITLE = $data['title'].' - '.$TITLE;
 	$BODY .=
 		'<div id="content">
 			<div class="metadata">
@@ -811,7 +823,7 @@ EOT;
 	Files which have metadata, but are missing from the filesystem are listed as such and provided with a link allowing them to be deleted if required. */
 function page_resource_manager()
 {
-	global $CONF, $DATA, $BODY;
+	global $CONF, $DATA, $BODY, $TITLE;
 
 	call('authenticate');
 	
@@ -824,6 +836,7 @@ function page_resource_manager()
 	// buffer for copying manageable resources
 	$resource_html = "";
 
+	$TITLE = 'Resource Manager - '.$TITLE;
 	$BODY .= "<div id='content'><h1>Resource Manager</h1><form action='".$CONF['script_filename']."?page=save_all' method='POST'>";
 	
 	// iterate through all the files currently present in the filesystem	
@@ -1218,9 +1231,10 @@ function generate_field_rdf_download($params)
 // public function for unique people
 // allows them to be assigned a URI
 function page_creators() {
-	global $CONF, $BODY;
+	global $CONF, $BODY, $TITLE;
 
-	$BODY .= "<div id='content'><h1>Contributors.</h1><ul>";
+	$TITLE = 'Contributors - '.$TITLE;
+	$BODY .= "<div id='content'><h1>Contributors</h1><ul>";
 	foreach (get_unique_creators() as $creator)
 	{
 		$BODY .= "<li><a href='#".urlencode($creator)."'>$creator</a></li>";
