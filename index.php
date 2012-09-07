@@ -4,7 +4,9 @@ ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ALL);
 // Global variable for storing all aspects of RedFeather's current state.
 $VAR = array(); 
 // Global variable to act as buffer for all program output
-$PAGE = '';
+$CSS = '';
+$JS = '';
+$BODY = '';
 
 /*	
 	RedFeather Configuration
@@ -148,13 +150,9 @@ else if (isset($_REQUEST['file']))
 else
 	call($VAR['default_page']);
 
-// output the page html
-print preg_replace('/\s+/', ' ',$PAGE);
-
 /*
 	Functions to interact with the local file system.
 */
-
 // returns a list of all files within the RedFeather resource scope (i.e. that can be annotated)
 function get_file_list()
 {
@@ -199,6 +197,15 @@ function load_data()
 		$VAR['data']= array();
 }
 
+function save_data()
+{
+	global $VAR;
+	// save the array as serialized PHP
+	$fh = fopen($VAR['metadata_filename'], 'w');
+	fwrite($fh,serialize($VAR['data']));
+	fclose($fh);
+}
+
 /* public function to save data from the resource manager to the local file system
 	Only available for POST requests
 	$_POST['resource_count'] contains the full number of resources being saved.
@@ -209,7 +216,7 @@ function load_data()
 	Files that are designated as "missing" will have their metadata retained even if they are not part of the main POST.
 	The ordering array contains the ids of all the submitted resources in the order they should be saved.
  */
-function page_save_data()
+function page_save_all()
 {
 	global $VAR;
 	// check request type
@@ -245,11 +252,8 @@ function page_save_data()
 			if (preg_match("/(.*)($i\$)/", $key, $matches))
 				$VAR['data'][$filename][$matches[1]] = $value;
 	}
-
-	// save the array as serialized PHP
-	$fh = fopen($VAR['metadata_filename'], 'w');
-	fwrite($fh,serialize($VAR['data']));
-	fclose($fh);
+	
+	call('save_data');
 
 	// redirect to the resource manager
 	header('Location:'.$VAR['script_url'].'?page=manage_resources');
@@ -288,7 +292,7 @@ function get_resource_list()
 
 // function to provide simple authentication functionality
 function authenticate() {
-	global $VAR, $PAGE, $function_map;
+	global $VAR, $BODY, $function_map;
 
 	// check the session for an authenticated user and return to the parent function if valid.
 	session_set_cookie_params(0, $VAR['script_url']);
@@ -309,103 +313,41 @@ function authenticate() {
 	
 
 	// if the user is unauthenticated and not making a signing post, render login screen.	
-	call('render_top');
 
-	$PAGE .=
+	$BODY .=
 		'<div id="content"><form method="post" action="'.$VAR['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
 			Username: <input type="text" name="username" />
 			Password: <input type="password" name="password" />
 			<input type="submit" value="Login" />
 		</form></div>';
 
-	call('render_bottom');
+	call('render_template');
 
-	print $PAGE;
 	exit;
 }
 
-// renders the top section of the html, including javascript, inline style sheet, page header, and opening section of the main content div
-function render_top()
+// render using template
+function render_template()
 {
-	global $VAR, $PAGE;
+	global $VAR, $BODY, $CSS, $JS;
 
 	// get the main title of the page
 	$VAR['page_title'] = $VAR['header_text'][0].$VAR['header_text'][1];
 
-	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
-	$PAGE .= 
-		'<html><head>
-			<title>'.$VAR['page_title'].'</title>
-			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-			<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
-			<style type="text/css">'.call('generate_stylesheet').'</style>	
-		</head>
-		<body>
-			<div id="header"><div class="center">
-				<h1><a href="'.$VAR['script_url'].'">
-					<span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'
-				</a></h1>';
 
-	// add the optional 'return link' as documented in the RedFeather configuration section
-	if (isset($VAR['return_link']))
-		$PAGE .= '<a style="float:right;" href="'.$VAR['return_link']['href'].'">'.$VAR['return_link']['text'].'</a>';
+	$page_width = $VAR['element_size']['preview_width']+$VAR['element_size']['metadata_gap']+$VAR['element_size']['metadata_width'];
 
-	$PAGE .= '
-				<h2>'.$VAR['header_text'][2].'</h2>
-			</div></div>
-			<div class="center">';
-}
-
-// renders the bottom of the html, closing the main content div and adding the footer
-function render_bottom()
-{
-	global $VAR, $PAGE;
-	$PAGE .= '
-			</div>
-			<div id="footer">
-				<div class="center">'.call('generate_toolbar','footer').'</div>
-		</html>';
-}
-
-function generate_toolbar_item_footer_credit()
-{
-	return 'Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a>'; 
-}
-
-function generate_toolbar_item_footer_resource_manager()
-{
-	global $VAR;
-	return '<a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a>';
-}
-
-
-// returns the default stylesheet for RedFeather
-function generate_stylesheet()
-{
-	global $VAR;
-	$text1 = $VAR['theme']['text1'];
-	$text2 = $VAR['theme']['text2'];
-	$linkcolor = $VAR['theme']['linkcolor'];
-	$bannercolor = $VAR['theme']['bannercolor'];
-	$background = $VAR['theme']['background'];
-	$font = $VAR['theme']['font'];
-	$manager_width = $VAR['element_size']['manager_width']."px";
-	$preview_width = $VAR['element_size']['preview_width']."px";
-	$preview_height = $VAR['element_size']['preview_height']."px";
-	$metadata_width = $VAR['element_size']['metadata_width']."px";
-	$metadata_gap = $VAR['element_size']['metadata_gap']."px";
-	$page_width = $VAR['element_size']['preview_width']+$VAR['element_size']['metadata_gap']+$VAR['element_size']['metadata_width']."px";
-
-	return <<<EOT
+	// add default CSS
+	$base_css = <<<EOT
 body { 
-	font-family: $font;
+	font-family: {$VAR['theme']['font']};
 	font-size: 14px;
-	color: $text1;
-	background: $background;
+	color: {$VAR['theme']['text1']};
+	background: {$VAR['theme']['background']};
 	line-height: 1.15;
 }
 .center {
-	width: $page_width;
+	width: {$page_width}px;
 	margin: auto;
 }
 h1 { 
@@ -419,7 +361,7 @@ p, h1 {
 	margin-bottom: 3px;
 }
 a {
-	color: $linkcolor;
+	color: {$VAR['theme']['linkcolor']};
 }
 a:link, a:visited {
 	text-decoration: none;
@@ -428,36 +370,36 @@ a:hover, a:active {
 	text-decoration: underline;
 }
 #header {
-	background: $bannercolor;
+	background: {$VAR['theme']['bannercolor']};
 	padding: 12px;
-	border-bottom: 1px solid $linkcolor;
+	border-bottom: 1px solid {$VAR['theme']['linkcolor']};
 }
 #header h1 {
 	font-size: 28px;
 	margin-bottom: 0;
 }
-#header h2 {
-	font-size: 14px;
-	font-style: italic;
-	color: $text2;
-}
-#header h1 > a {
+.#header h1 > a {
 	color:inherit;
 	text-decoration: none;
 }
-.titlespan {
-	color: $linkcolor;
+titlespan {
+	color: {$VAR['theme']['linkcolor']};
+}
+#header h2 {
+	font-size: 14px;
+	font-style: italic;
+	color: {$VAR['theme']['text2']};
 }
 #footer {
 	padding: 6px; 
-	background: $bannercolor;
-	border-top: 1px solid $linkcolor;
-	border-bottom: 1px solid $linkcolor;
+	background: {$VAR['theme']['bannercolor']};
+	border-top: 1px solid {$VAR['theme']['linkcolor']};
+	border-bottom: 1px solid {$VAR['theme']['linkcolor']};
 }
 .toolbar_footer > li {
 	display: inline;
 	padding: 0 5px;
-	border-right: 1px solid $text1;
+	border-right: 1px solid {$VAR['theme']['text1']};
 }
 .toolbar_footer > li:first-child {
 	padding-left: 0;
@@ -469,92 +411,51 @@ a:hover, a:active {
 #content {
 	padding: 6px 0 6px 0;
 }
-.new_resource {
-	border-left: 1px dashed $linkcolor;
-	padding-left: 6px;
-	margin-bottom: 6px; 
-}
-.manageable {
-	margin-top: 15px;
-}
-.manageable td {
-	padding-bottom:12px;
-	vertical-align: middle;
-}
-tr>:first-child {
-	color: $text2;
-	padding-right: 12px;
-}
-.manageable tr>:nth-child(2) {
-	width: $manager_width;
-}
-.manageable input, .manageable textarea, .manageable select {
-	font: inherit;
-	width: 100%;
-}
-.creators th {
-	color: $text2;
-}
-.creators td {
-	width: 45%;
-	padding-bottom: 6px;
-}
-.creators tr >:nth-child(3) {
-	width: 10%;
-	text-align: right;
-}
-.metadata {
-	width: $metadata_width;
-	float: right;
-	margin-left: $metadata_gap;
-	padding:0;
-}
-.metadata_table {
-	margin-bottom: 6px;
-	margin-left: 6px;
-	font-size: 12px;
-}
-#preview {
-	width: $preview_width;
-	max-height: $preview_height;
-	overflow: hidden;
-	text-align: center;
-}
-#preview iframe {
-	width: $preview_width;
-	height: $preview_height;
-}
-#preview .message {
-	display: none;
-	text-align: justify;
-}
-#preview.message_inserted iframe {
-	margin-top: -$preview_height;
-}
-#preview.message_inserted .message {
-	height: $preview_height;
-	display: block;
-}
 .clearer {
 	clear: both;
 }
-.resource {
-	margin-bottom: 12px;
-}
-.resource .field_name {
-	color: $text2;
-}
-.toolbar_browse {
-	margin-bottom: 10px;
-}
-.toolbar_browse > li {
-	padding-right: 10px;
-	display: inline;
-}
-.toolbar_browse > li > a > img {
-	vertical-align: text-bottom;
-}
 EOT;
+
+	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
+	print 
+		'<html><head>
+			<title>'.$VAR['page_title'].'</title>
+			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+			<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
+			<style type="text/css">'.$base_css.$CSS.'</style>
+			<script type="text/javascript">'.$JS.'</script>
+		</head>
+		<body>
+			<div id="header"><div class="center">
+				<h1><a href="'.$VAR['script_url'].'">
+					<span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'
+				</a></h1>';
+
+	// add the optional 'return link' as documented in the RedFeather configuration section
+	if (isset($VAR['return_link']))
+		print '<a style="float:right;" href="'.$VAR['return_link']['href'].'">'.$VAR['return_link']['text'].'</a>';
+
+	print '
+				<h2>'.$VAR['header_text'][2].'</h2>
+			</div></div>
+			<div class="center">
+			'.$BODY.'
+			</div>
+			<div id="footer">
+				<div class="center">'.call('generate_toolbar','footer').'</div>
+		</html>';
+
+}
+
+function generate_toolbar_item_footer_credit()
+{
+	return 'Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a>'; 
+}
+
+function generate_toolbar_item_footer_resource_manager()
+{
+	global $VAR;
+	return '<a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a>';
 }
 
 /*
@@ -649,17 +550,17 @@ function generate_field_input_creators($params)
 			</td>
 		</tr>";
 
+	global $JS;
+
 	// add the javascript function for the creator widget
 	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
-	$html .= <<<EOT
-<script type='text/javascript'>
-	function add_creator$num() {
-		var creators = $("#creators$num");
-		var addcreator = $("#addcreator$num");
-		creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
-		addcreator.remove().appendTo(creators);
-	}
-</script>
+	$JS .= <<<EOT
+function add_creator$num() {
+	var creators = $("#creators$num");
+	var addcreator = $("#addcreator$num");
+	creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
+	addcreator.remove().appendTo(creators);
+}
 EOT;
 
 	return $html;
@@ -694,14 +595,28 @@ function generate_field_input_license($params)
 // Lists all the resources that have been annotated and provides a facility to search.
 function page_browse()
 {
-	global $VAR, $PAGE;
+	global $VAR, $BODY, $CSS;
 
-	call('render_top');
+	$CSS .= <<<EOT
+.resource {
+	margin-bottom: 12px;
+}
+.toolbar_browse {
+	margin-bottom: 10px;
+}
+.toolbar_browse > li {
+	padding-right: 10px;
+	display: inline;
+}
+.toolbar_browse > li > a > img {
+	vertical-align: text-bottom;
+}
+EOT;
 
-	$PAGE .= '<div id="content">'.call('generate_toolbar', 'browse');
+	$BODY .= '<div id="content">'.call('generate_toolbar', 'browse');
 	
 	// div for resource list
-	$PAGE .= '<div class="browse_list">';
+	$BODY .= '<div class="browse_list">';
 
 	// get the list of all files within the RedFeather scope
 	foreach(call('get_resource_list') as $filename)
@@ -709,16 +624,16 @@ function page_browse()
 		// retrieve the data and render the resource using the "generate_metadata_table" function
 		$data = $VAR['data'][$filename];
 		$url = $VAR['script_url']."?file=$filename";
-		$PAGE .= 
+		$BODY .= 
 			"<div class='resource'>
 				<h1><a href='$url'>{$data['title']}</a></h1>
 				<p>{$data['description']}</p>
 				".call('generate_metadata_table', $data)."
 			</div>";
 	}
-	$PAGE .= '</div></div>';
+	$BODY .= '</div></div>';
 
-	call('render_bottom');
+	call('render_template');
 }
 
 
@@ -739,8 +654,6 @@ function generate_toolbar_item_browse_search()
 				$(".resource:contains("+$("#filter").val()+")").show();
 			}
 		</script>';
-
-
 }
 
 function generate_toolbar_item_browse_rss()
@@ -759,14 +672,12 @@ function generate_toolbar_item_browse_rdf()
 // View the resource preview, metadata and social networking plugin
 function page_resource()
 {
-	global $VAR, $PAGE;
-
-	call('render_top');	
+	global $VAR, $BODY, $CSS;
 	
 	// check that the file requested actually exists
 	if (!isset($_REQUEST['file']) || !isset($VAR['data'][$_REQUEST['file']]))
 	{
-		$PAGE .= 'Invalid resource.';
+		$BODY .= 'Invalid resource.';
 		call('render_bottom');
 		return;
 	}
@@ -774,7 +685,31 @@ function page_resource()
 	// get the resource metadata and compute urls
 	$data = $VAR['data'][$_REQUEST['file']];
 
-	$PAGE .=
+	$CSS .= <<<EOT
+#preview {
+	width: {$VAR['element_size']['preview_width']}px;
+	max-height: {$VAR['element_size']['preview_height']}px;
+	overflow: hidden;
+	text-align: center;
+}
+#preview iframe {
+	width: {$VAR['element_size']['preview_width']}px;
+	height: {$VAR['element_size']['preview_height']}px;
+}
+#preview .message {
+	display: none;
+	text-align: justify;
+}
+#preview.message_inserted iframe {
+	margin-top: -{$VAR['element_size']['preview_height']}px;
+}
+#preview.message_inserted .message {
+	height: {$VAR['element_size']['preview_height']}px;
+	display: block;
+}
+EOT;
+
+	$BODY .=
 		'<div id="content">
 			<div class="metadata">
 			'.call('generate_toolbar', 'resource').'
@@ -783,7 +718,7 @@ function page_resource()
 			<div class="clearer"></div>
 		</div>';
 
-	call('render_bottom');
+	call('render_template');
 }
 
 // toolbar
@@ -854,15 +789,17 @@ function generate_preview($params)
 	// if the function failed, attempt to render using googledocs previewer
 	else
 	{
+		global $JS;
+
+		$JS .= <<<EOT
+function preview_fallback() {
+	var d = document.getElementById('preview');
+	d.className = d.className + ' message_inserted';
+}
+window.setTimeout('preview_fallback()', 10000);
+EOT;
 		// create error message in case the widget fails to load
 		$error_fallback = "
-			<script>
-				function preview_fallback() {
-					var d = document.getElementById('preview');
-					d.className = d.className + ' message_inserted';
-				}
-				window.setTimeout('preview_fallback()', 10000);
-			</script>
 			<div class='message'><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>";
 	
 		// place the error message directly underneath the widget
@@ -873,7 +810,27 @@ function generate_preview($params)
 // returns the metadata table for the resource data specified
 function generate_metadata_table($data)
 {
-	global $VAR;
+	global $VAR, $CSS;
+
+	// add custom CSS
+	$CSS .= <<<EOT
+.metadata {
+	width: {$VAR['element_size']['metadata_width']}px;
+	float: right;
+	margin-left: {$VAR['element_size']['metadata_gap']}px;
+	padding:0;
+}
+.metadata_table {
+	margin-bottom: 6px;
+	margin-left: 6px;
+	font-size: 12px;
+}
+tr>:first-child {
+	color: {$VAR['theme']['text2']};
+	padding-right: 12px;
+}
+EOT;
+
 	$table = '<table class="metadata_table"><tbody>';
 	
 	//  fields
@@ -893,11 +850,47 @@ function generate_metadata_table($data)
 	Files which have metadata, but are missing from the filesystem are listed as such and provided with a link allowing them to be deleted if required. */
 function page_manage_resources()
 {
-	global $VAR, $PAGE;
+	global $VAR, $BODY, $CSS, $JS;
 
 	call('authenticate');
-	call('render_top');
 	
+	$CSS .= <<<EOT
+.new_resource {
+	border-left: 1px dashed {$VAR['theme']['linkcolor']};
+	padding-left: 6px;
+	margin-bottom: 6px; 
+}
+.manageable {
+	margin-top: 15px;
+}
+.manageable td {
+	padding-bottom:12px;
+	vertical-align: middle;
+}
+tr>:first-child {
+	color: {$VAR['theme']['text2']};
+	padding-right: 12px;
+}
+.manageable tr>:nth-child(2) {
+	width: {$VAR['element_size']['manager_width']}px;
+}
+.manageable input, .manageable textarea, .manageable select {
+	font: inherit;
+	width: 100%;
+}
+.creators th {
+	color: {$VAR['theme']['text2']};
+}
+.creators td {
+	width: 45%;
+	padding-bottom: 6px;
+}
+.creators tr >:nth-child(3) {
+	width: 10%;
+	text-align: right;
+}
+EOT;
+
 	// counter for the number of new files detected
 	$new_file_count = 0;
 	// counter for the total number of files
@@ -907,7 +900,7 @@ function page_manage_resources()
 	// buffer for copying manageable resources
 	$resource_html = "";
 
-	$PAGE .= "<div id='content'><h1>Manage Resources</h1><form action='".$VAR['script_filename']."?page=save_data' method='POST'>";
+	$BODY .= "<div id='content'><h1>Manage Resources</h1><form action='".$VAR['script_filename']."?page=save_all' method='POST'>";
 	
 	// iterate through all the files currently present in the filesystem	
 	foreach (call('get_file_list') as $filename)
@@ -945,38 +938,35 @@ function page_manage_resources()
 		$num++;
 	}
 
-	if ($new_file_count) $PAGE .= "<p>$new_file_count new files found.</p>";
+	if ($new_file_count) $BODY .= "<p>$new_file_count new files found.</p>";
 
-	$PAGE .= $resource_html;
+	$BODY .= $resource_html;
 
 	// add save button
-	$PAGE .= "<input type='submit' value='Save'/>";
-	$PAGE .= "</form></div>";
+	$BODY .= "<input type='submit' value='Save'/>";
+	$BODY .= "</form></div>";
 
 	// adding the javascript for up/down arrows
-	$PAGE .= <<<EOT
-<script type='text/javascript'>
-	$(document).ready(function() {
-		$('<div style="text-size:8px;"><a href="#" class="up">up</a>/<a href="#" class="down">down</a></div>').insertAfter('.manageable > h1');
-		$('.up').click(function() {
-			var item = $(this).parent().parent();
-			var other = item.prev('.manageable');
-			if (other.html() == null) return false;
-			item.detach().insertBefore(other);
-			return false;
-		});
-		$('.down').click(function() {
-			var item = $(this).parent().parent();
-			var other = item.next('.manageable');
-			if (other.html() == null) return false;
-			item.detach().insertAfter(other);
-			return false;
-		});
-
+	$JS .= <<<EOT
+$(document).ready(function() {
+	$('<div style="text-size:8px;"><a href="#" class="up">up</a>/<a href="#" class="down">down</a></div>').insertAfter('.manageable > h1');
+	$('.up').click(function() {
+		var item = $(this).parent().parent();
+		var other = item.prev('.manageable');
+		if (other.html() == null) return false;
+		item.detach().insertBefore(other);
+		return false;
 	});
-</script>
+	$('.down').click(function() {
+		var item = $(this).parent().parent();
+		var other = item.next('.manageable');
+		if (other.html() == null) return false;
+		item.detach().insertAfter(other);
+		return false;
+	});
+});
 EOT;
-	call('render_bottom');
+	call('render_template');
 }
 
 // returns the html for a single item on the resource workflow
@@ -1179,16 +1169,15 @@ function generate_field_rdf_download($params)
 
 // public function for unique people
 function page_creators() {
-	global $VAR, $PAGE;
+	global $VAR, $BODY;
 
-	call("render_top");
-	$PAGE .= "<div id='content'><h1>Contributors.</h1><ul>";
+	$BODY .= "<div id='content'><h1>Contributors.</h1><ul>";
 	foreach (get_unique_creators() as $creator)
 	{
-		$PAGE .= "<li><a href='#".urlencode($creator)."'>$creator</a></li>";
+		$BODY .= "<li><a href='#".urlencode($creator)."'>$creator</a></li>";
 	}
-	$PAGE .= "</ul></div>";
-	call("render_bottom");
+	$BODY .= "</ul></div>";
+	call("render_template");
 
 }
 
