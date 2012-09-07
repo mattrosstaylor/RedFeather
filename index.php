@@ -1,19 +1,19 @@
 <?php
 ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ALL);
 
-// Global variable for storing all aspects of RedFeather's current state.
-$VAR = array(); 
+// global variable for configuration
+$CONF = array(); 
 
 /****************************	
    RedFeather Configuration
  ****************************/	
 
 	// Text to use in the site header.
-	$VAR['repository_name'] = 'RedFeather';
-	$VAR['repository_tagline'] = 'Lightweight Resource Exhibition and Discovery';
+	$CONF['repository_name'] = 'RedFeather';
+	$CONF['repository_tagline'] = 'Lightweight Resource Exhibition and Discovery';
 
 	// Colour scheme for the repository.
-	$VAR['theme'] = array(
+	$CONF['theme'] = array(
 		'linkcolor'=>'#AC1F1F', // colour used for hyperlinks, banner trim and the coloured section of the header 
 		'bannercolor'=>'#F0D0D0', // colour used for the header and footer
 		'text1'=>'black', // main text colour
@@ -23,10 +23,10 @@ $VAR = array();
 	);
 
 	// Optional header section to allow navigation from RedFeather back to a parent site.
-	//$VAR['return_link'] = array('text'=>'return to site >', 'href'=>'http://www.example.com');
+	//$CONF['return_link'] = array('text'=>'return to site >', 'href'=>'http://www.example.com');
 
 	// Default values for a new resource
-	$VAR['default_metadata'] = array(
+	$CONF['default_metadata'] = array(
 		'title'=>'',
 		'description'=>'', 
 		'creators'=>array(''),
@@ -35,7 +35,7 @@ $VAR = array();
 	);
 
 	// Array of username/password combinations that are allowed to access the resource manager
-	$VAR['users'] = array('admin'=>'password');
+	$CONF['users'] = array('admin'=>'password');
 
 
 /**************************
@@ -43,7 +43,7 @@ $VAR = array();
  **************************/
 
 // Field definitions
-$VAR['fields'] = array(
+$CONF['fields'] = array(
 	'title',
 	'description',
 	'creators',
@@ -53,14 +53,14 @@ $VAR['fields'] = array(
 );
 
 // Toolbars
-$VAR['toolbars'] = array(
+$CONF['toolbars'] = array(
 	'footer' => array('credit', 'resource_manager'),
 	'browse' => array('search', 'rss', 'rdf'),
 	'resource' => array('metadata', 'comments'),
 );
 
 // List of available licenses for RedFeather
-$VAR['licenses'] = array(
+$CONF['licenses'] = array(
 	''=>'unspecified',
 	'by'=>'Attribution',
 	'by-sa'=>'Attribution-ShareAlike',
@@ -71,7 +71,7 @@ $VAR['licenses'] = array(
 );
 
 // Dimensions for various elements for the site.
-$VAR['element_size'] = array(
+$CONF['element_size'] = array(
 	'preview_width'=>680, // width of the resource preview in px
 	'preview_height'=>550, // height of the resource preview in px
 	'metadata_width'=>300, // width of the resource metadata column in px
@@ -80,18 +80,18 @@ $VAR['element_size'] = array(
 );
 
 // Sets the default page for RedFeather
-$VAR['default_page'] = 'page_browse';
+$CONF['default_page'] = 'page_browse';
 
 // The filename for this script
-$VAR['script_filename'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
+$CONF['script_filename'] = array_pop(explode("/", $_SERVER["SCRIPT_NAME"]));
 // The full url of the directory RedFeather is installed in.
-$VAR['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
+$CONF['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
 // The full url of the RedFeather script
-$VAR['script_url'] = $VAR['base_url'].$VAR['script_filename'];
+$CONF['script_url'] = $CONF['base_url'].$CONF['script_filename'];
 // The file used for storing the resource metadata
-$VAR['metadata_filename'] = "resourcedata";
+$CONF['metadata_filename'] = "resourcedata";
 // The name of the plugins folder
-$VAR['plugin_dir'] = "plugins";
+$CONF['plugin_dir'] = "plugins";
 
 
 /******************************
@@ -100,21 +100,22 @@ $VAR['plugin_dir'] = "plugins";
 
 // If a plugin directory exists, open it and include any php files it contains.
 // Some variables and functions could be overwritten at this point, depending on the plugins installed.
-if(is_dir($VAR['plugin_dir']))
-	if ($dh = opendir($VAR['plugin_dir']))
+if(is_dir($CONF['plugin_dir']))
+	if ($dh = opendir($CONF['plugin_dir']))
 	{ 
 		while (($file = readdir($dh)) !== false) 
-			if(is_file($VAR['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file))
-				include($VAR['plugin_dir'].'/'.$file);
+			if(is_file($CONF['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file))
+				include($CONF['plugin_dir'].'/'.$file);
 		closedir($dh);
 	}
 
-
-// Buffer for page body content
+// global variable to store resource data
+$DATA = array();
+// global variable to buffer main body html
 $BODY = '';
-// Buffer for CSS
+// global variable to buffer CSS
 $CSS = '';
-// Buffer for Javascript
+// global variable to buffer Javascript
 $JS = '';
 
 // Load the resource metadata
@@ -129,7 +130,7 @@ if(isset($_REQUEST['page']))
 else if (isset($_REQUEST['file']))
 	call('page_resource');
 else
-	call($VAR['default_page']);
+	call($CONF['default_page']);
 
 
 /*********************
@@ -166,10 +167,10 @@ $function_map = array(
 
 // function to provide simple authentication functionality
 function authenticate() {
-	global $VAR, $BODY, $function_map;
+	global $CONF, $BODY, $function_map;
 
 	// check the session for an authenticated user and return to the parent function if valid.
-	session_set_cookie_params(0, $VAR['script_url']);
+	session_set_cookie_params(0, $CONF['script_url']);
 	session_start();
 	if(isset($_SESSION['current_user']))
 	{
@@ -178,8 +179,8 @@ function authenticate() {
 
 	// If this is a post requesting to log in, check username and password against authorised credentials.
 	if (isset($_POST['username']) && isset($_POST['password']) 
-		&& isset($VAR['users'][$_POST['username']]) 
-		&& $VAR['users'][$_POST['username']]==$_POST['password']) 
+		&& isset($CONF['users'][$_POST['username']]) 
+		&& $CONF['users'][$_POST['username']]==$_POST['password']) 
 	{
 		$_SESSION['current_user']=$_POST['username'];
 		return;
@@ -189,7 +190,7 @@ function authenticate() {
 	// if the user is unauthenticated and not making a signing post, render login screen.	
 
 	$BODY .=
-		'<div id="content"><form method="post" action="'.$VAR['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
+		'<div id="content"><form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
 			Username: <input type="text" name="username" />
 			Password: <input type="password" name="password" />
 			<input type="submit" value="Login" />
@@ -202,11 +203,11 @@ function authenticate() {
 // generates a named toolbar
 function generate_toolbar($toolbar)
 {
-	global $VAR;
+	global $CONF;
 
 	$html ="<ul class='toolbar_$toolbar'>";
 
-	foreach($VAR['toolbars'][$toolbar] as $tool)
+	foreach($CONF['toolbars'][$toolbar] as $tool)
 		$html .= "<li>".call("generate_toolbar_item_".$toolbar."_".$tool)."</li>";
 
 	return $html .= "</ul>";
@@ -215,11 +216,11 @@ function generate_toolbar($toolbar)
 // function to get a list of all the complete resources (i.e. with matching file/metadata)
 function get_resource_list()
 {
-	global $VAR;
+	global $DATA;
 	$list = array();
 	$files = call('get_file_list');
 
-	foreach ($VAR['data'] as $filename => $data)
+	foreach ($DATA as $filename => $data)
 		if (in_array($filename, $files)) array_push($list, $filename);
 
 	return $list;
@@ -228,17 +229,17 @@ function get_resource_list()
 // render using template
 function render_template()
 {
-	global $VAR, $BODY, $CSS, $JS;
+	global $CONF, $BODY, $CSS, $JS;
 
-	$page_width = $VAR['element_size']['preview_width']+$VAR['element_size']['metadata_gap']+$VAR['element_size']['metadata_width'];
+	$page_width = $CONF['element_size']['preview_width']+$CONF['element_size']['metadata_gap']+$CONF['element_size']['metadata_width'];
 
 	// add default CSS
 	$base_css = <<<EOT
 body { 
-	font-family: {$VAR['theme']['font']};
+	font-family: {$CONF['theme']['font']};
 	font-size: 14px;
-	color: {$VAR['theme']['text1']};
-	background: {$VAR['theme']['background']};
+	color: {$CONF['theme']['text1']};
+	background: {$CONF['theme']['background']};
 	line-height: 1.15;
 }
 .center {
@@ -256,7 +257,7 @@ p, h1 {
 	margin-bottom: 3px;
 }
 a {
-	color: {$VAR['theme']['linkcolor']};
+	color: {$CONF['theme']['linkcolor']};
 }
 a:link, a:visited {
 	text-decoration: none;
@@ -265,9 +266,9 @@ a:hover, a:active {
 	text-decoration: underline;
 }
 #header {
-	background: {$VAR['theme']['bannercolor']};
+	background: {$CONF['theme']['bannercolor']};
 	padding: 12px;
-	border-bottom: 1px solid {$VAR['theme']['linkcolor']};
+	border-bottom: 1px solid {$CONF['theme']['linkcolor']};
 }
 #header h1 {
 	font-size: 28px;
@@ -279,18 +280,18 @@ a:hover, a:active {
 #header h2 {
 	font-size: 14px;
 	font-style: italic;
-	color: {$VAR['theme']['text1']};
+	color: {$CONF['theme']['text1']};
 }
 #footer {
 	padding: 6px; 
-	background: {$VAR['theme']['bannercolor']};
-	border-top: 1px solid {$VAR['theme']['linkcolor']};
-	border-bottom: 1px solid {$VAR['theme']['linkcolor']};
+	background: {$CONF['theme']['bannercolor']};
+	border-top: 1px solid {$CONF['theme']['linkcolor']};
+	border-bottom: 1px solid {$CONF['theme']['linkcolor']};
 }
 .toolbar_footer > li {
 	display: inline;
 	padding: 0 5px;
-	border-right: 1px solid {$VAR['theme']['text1']};
+	border-right: 1px solid {$CONF['theme']['text1']};
 }
 .toolbar_footer > li:first-child {
 	padding-left: 0;
@@ -310,7 +311,7 @@ EOT;
 	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
 	print 
 		'<html><head>
-			<title>'.$VAR['repository_name'].'</title>
+			<title>'.$CONF['repository_name'].'</title>
 			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 			<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
 			<style type="text/css">'.$base_css.$CSS.'</style>
@@ -318,16 +319,16 @@ EOT;
 		</head>
 		<body>
 			<div id="header"><div class="center">
-				<h1><a href="'.$VAR['script_url'].'">
-					'.$VAR['repository_name'].'
+				<h1><a href="'.$CONF['script_url'].'">
+					'.$CONF['repository_name'].'
 				</a></h1>';
 
 	// add the optional 'return link' as documented in the RedFeather configuration section
-	if (isset($VAR['return_link']))
-		print '<a style="float:right;" href="'.$VAR['return_link']['href'].'">'.$VAR['return_link']['text'].'</a>';
+	if (isset($CONF['return_link']))
+		print '<a style="float:right;" href="'.$CONF['return_link']['href'].'">'.$CONF['return_link']['text'].'</a>';
 
 	print '
-				<h2>'.$VAR['repository_tagline'].'</h2>
+				<h2>'.$CONF['repository_tagline'].'</h2>
 			</div></div>
 			<div class="center">
 			'.$BODY.'
@@ -338,15 +339,17 @@ EOT;
 
 }
 
+// toolbar item for footer
 function generate_toolbar_item_footer_credit()
 {
 	return 'Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a>'; 
 }
 
+// toolbar item for footer
 function generate_toolbar_item_footer_resource_manager()
 {
-	global $VAR;
-	return '<a href="'.$VAR['script_url'].'?page=resource_manager">Resource Manager</a>';
+	global $CONF;
+	return '<a href="'.$CONF['script_url'].'?page=resource_manager">Resource Manager</a>';
 }
 
 
@@ -356,13 +359,13 @@ function generate_toolbar_item_footer_resource_manager()
 // returns a list of all files within the RedFeather resource scope (i.e. that can be annotated)
 function get_file_list()
 {
-	global $VAR;
+	global $CONF;
 	$file_list = array();
 	$dir = "./";
 	foreach (scandir($dir) as $file)
 	{
 		// exclude directories, hidden files, the RedFeather file and the metadata file
-		if( is_dir($dir.$file) || preg_match("/^\./", $file) || $file == $VAR['script_filename'] || $file == $VAR['metadata_filename']) continue;
+		if( is_dir($dir.$file) || preg_match("/^\./", $file) || $file == $CONF['script_filename'] || $file == $CONF['metadata_filename']) continue;
 		array_push($file_list, $file);
 	}
 	return $file_list;
@@ -372,8 +375,8 @@ function get_file_list()
 // returns a absolute hyperlink to a given file
 function get_file_link($filename)
 {
-	global $VAR;
-	return $VAR['base_url'].$filename;
+	global $CONF;
+	return $CONF['base_url'].$filename;
 }
 
 // returns the data a file was last edited
@@ -388,21 +391,21 @@ function get_image_size($filename)
 	return getimagesize($filename);
 }
 
-// loads the resource metadata from the filesystem in the global variable $VAR
+// loads the resource metadata from the filesystem in the global variable $CONF
 function load_data()
 {
-	global $VAR;
-	$VAR['data'] = unserialize(file_get_contents($VAR['metadata_filename']));
-	if(!is_array($VAR['data']) )
-		$VAR['data']= array();
+	global $CONF, $DATA;
+	$DATA = unserialize(file_get_contents($CONF['metadata_filename']));
+	if(!is_array($DATA) )
+		$DATA= array();
 }
 // saves the resource metadata to the filesystem
 function save_data()
 {
-	global $VAR;
+	global $CONF, $DATA;
 	// save the array as serialized PHP
-	$fh = fopen($VAR['metadata_filename'], 'w');
-	fwrite($fh,serialize($VAR['data']));
+	$fh = fopen($CONF['metadata_filename'], 'w');
+	fwrite($fh,serialize($DATA));
 	fclose($fh);
 }
 
@@ -415,7 +418,7 @@ function save_data()
 // Lists all the resources that have been annotated and provides a facility to search.
 function page_browse()
 {
-	global $VAR, $BODY, $CSS;
+	global $CONF, $DATA, $BODY, $CSS;
 
 	$CSS .= <<<EOT
 .resource {
@@ -442,8 +445,8 @@ EOT;
 	foreach(call('get_resource_list') as $filename)
 	{
 		// retrieve the data and render the resource using the "generate_metadata_table" function
-		$data = $VAR['data'][$filename];
-		$url = $VAR['script_url']."?file=$filename";
+		$data = $DATA[$filename];
+		$url = $CONF['script_url']."?file=$filename";
 		$BODY .= 
 			"<div class='resource'>
 				<h1><a href='$url'>{$data['title']}</a></h1>
@@ -460,7 +463,7 @@ EOT;
 // toolbar item for browse page
 function generate_toolbar_item_browse_search()
 {
-	global $VAR;
+	global $CONF;
 
 	return 
 		'Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
@@ -480,54 +483,54 @@ function generate_toolbar_item_browse_search()
 // toolbar item for browse page
 function generate_toolbar_item_browse_rss()
 {
-	global $VAR;
-	return '<a href="'.$VAR['script_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>';
+	global $CONF;
+	return '<a href="'.$CONF['script_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>';
 }
 
 // toolbar item for browse page
 function generate_toolbar_item_browse_rdf()
 {
 
-	global $VAR;
-	return '<a href="'.$VAR['script_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
+	global $CONF;
+	return '<a href="'.$CONF['script_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
 }
 
 // View the resource preview, metadata and social networking plugin
 function page_resource()
 {
-	global $VAR, $BODY, $CSS;
+	global $CONF, $DATA, $BODY, $CSS;
 	
 	// check that the file requested actually exists
-	if (!isset($_REQUEST['file']) || !isset($VAR['data'][$_REQUEST['file']]))
+	if (!isset($_REQUEST['file']) || !isset($DATA[$_REQUEST['file']]))
 	{
 		$BODY .= 'Invalid resource.';
-		call('render_bottom');
+		call('render_template');
 		return;
 	}
 
 	// get the resource metadata and compute urls
-	$data = $VAR['data'][$_REQUEST['file']];
+	$data = $DATA[$_REQUEST['file']];
 
 	$CSS .= <<<EOT
 #preview {
-	width: {$VAR['element_size']['preview_width']}px;
-	max-height: {$VAR['element_size']['preview_height']}px;
+	width: {$CONF['element_size']['preview_width']}px;
+	max-height: {$CONF['element_size']['preview_height']}px;
 	overflow: hidden;
 	text-align: center;
 }
 #preview iframe {
-	width: {$VAR['element_size']['preview_width']}px;
-	height: {$VAR['element_size']['preview_height']}px;
+	width: {$CONF['element_size']['preview_width']}px;
+	height: {$CONF['element_size']['preview_height']}px;
 }
 #preview .message {
 	display: none;
 	text-align: justify;
 }
 #preview.message_inserted iframe {
-	margin-top: -{$VAR['element_size']['preview_height']}px;
+	margin-top: -{$CONF['element_size']['preview_height']}px;
 }
 #preview.message_inserted .message {
-	height: {$VAR['element_size']['preview_height']}px;
+	height: {$CONF['element_size']['preview_height']}px;
 	display: block;
 }
 EOT;
@@ -537,7 +540,7 @@ EOT;
 			<div class="metadata">
 			'.call('generate_toolbar', 'resource').'
 			</div>
-			<div id="preview">'.call('generate_preview', array($data['filename'], $VAR['element_size']['preview_width'], $VAR['element_size']['preview_height'])).'</div>
+			<div id="preview">'.call('generate_preview', array($data['filename'], $CONF['element_size']['preview_width'], $CONF['element_size']['preview_height'])).'</div>
 			<div class="clearer"></div>
 		</div>';
 
@@ -547,8 +550,8 @@ EOT;
 // toolbar item for resource page
 function generate_toolbar_item_resource_metadata()
 {
-	global $VAR;
-	$data = $VAR['data'][$_REQUEST['file']];
+	global $CONF, $DATA;
+	$data = $DATA[$_REQUEST['file']];
 	
 	return '<h1>'.$data['title'].'</h1>
 		<p>'.$data['description'].'</p>
@@ -558,17 +561,17 @@ function generate_toolbar_item_resource_metadata()
 // toolbar item for resource page
 function generate_toolbar_item_resource_comments()
 {
-	global $VAR;
-	$data = $VAR['data'][$_REQUEST['file']];
+	global $CONF, $DATA;
+	$data = $DATA[$_REQUEST['file']];
 
-	$this_url = $VAR["script_url"].'?file='.$data['filename'];
+	$this_url = $CONF["script_url"].'?file='.$data['filename'];
 	return call('generate_comment_widget', $this_url);
 }
 
 // return the Facebook comment widget
 function generate_comment_widget($this_url)
 {
-	global $VAR;
+	global $CONF;
 
 	return '
 		<div id="fb-root"></div>
@@ -581,7 +584,7 @@ function generate_comment_widget($this_url)
 				fjs.parentNode.insertBefore(js, fjs);
 			}(document, "script", "facebook-jssdk"));
 		</script>
-		<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$VAR['element_size']['metadata_width'].'"></div>';
+		<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$CONF['element_size']['metadata_width'].'"></div>';
 }
 
 /* Return the preview widget for a given resource at the dimensions specified.
@@ -591,7 +594,7 @@ function generate_comment_widget($this_url)
 	Since there is no way to detect this when it occurs, and is a fatal bug in terms of preview functionality, a workaround has been devised where an error message is hidden underneath the preview widget.  If the preview widget fails it will be visible through the empty iframe. */
 function generate_preview($params)
 {
-	global $VAR;
+	global $CONF;
 	$filename = $params[0];
 	$width = $params[1];
 	$height = $params[2];
@@ -634,14 +637,14 @@ EOT;
 // returns the metadata table for the resource data specified
 function generate_metadata_table($data)
 {
-	global $VAR, $CSS;
+	global $CONF, $CSS;
 
 	// add custom CSS
 	$CSS .= <<<EOT
 .metadata {
-	width: {$VAR['element_size']['metadata_width']}px;
+	width: {$CONF['element_size']['metadata_width']}px;
 	float: right;
-	margin-left: {$VAR['element_size']['metadata_gap']}px;
+	margin-left: {$CONF['element_size']['metadata_gap']}px;
 	padding:0;
 }
 .metadata_table {
@@ -650,7 +653,7 @@ function generate_metadata_table($data)
 	font-size: 12px;
 }
 tr>:first-child {
-	color: {$VAR['theme']['text2']};
+	color: {$CONF['theme']['text2']};
 	padding-right: 12px;
 }
 EOT;
@@ -658,7 +661,7 @@ EOT;
 	$table = '<table class="metadata_table"><tbody>';
 	
 	//  fields
-	foreach ($VAR['fields'] as $fieldname)
+	foreach ($CONF['fields'] as $fieldname)
 		$table .= call_optional("generate_field_output_$fieldname", $data);
 
 	$table .= '</tbody></table>';
@@ -696,8 +699,8 @@ function generate_field_output_date($data)
 // field definition for metadata table
 function generate_field_output_license($data)
 {
-	global $VAR;
-	return '<tr><td>License:</td><td>'.$VAR['licenses'][$data['license']].'</td></tr>';
+	global $CONF;
+	return '<tr><td>License:</td><td>'.$CONF['licenses'][$data['license']].'</td></tr>';
 }
 
 // field definition for metadata table
@@ -718,13 +721,13 @@ function generate_field_output_download($data)
 	Files which have metadata, but are missing from the filesystem are listed as such and provided with a link allowing them to be deleted if required. */
 function page_resource_manager()
 {
-	global $VAR, $BODY, $CSS, $JS;
+	global $CONF, $DATA, $BODY, $CSS, $JS;
 
 	call('authenticate');
 	
 	$CSS .= <<<EOT
 .new_resource {
-	border-left: 1px dashed {$VAR['theme']['linkcolor']};
+	border-left: 1px dashed {$CONF['theme']['linkcolor']};
 	padding-left: 6px;
 	margin-bottom: 6px; 
 }
@@ -736,18 +739,18 @@ function page_resource_manager()
 	vertical-align: middle;
 }
 tr>:first-child {
-	color: {$VAR['theme']['text2']};
+	color: {$CONF['theme']['text2']};
 	padding-right: 12px;
 }
 .manageable tr>:nth-child(2) {
-	width: {$VAR['element_size']['manager_width']}px;
+	width: {$CONF['element_size']['manager_width']}px;
 }
 .manageable input, .manageable textarea, .manageable select {
 	font: inherit;
 	width: 100%;
 }
 .creators th {
-	color: {$VAR['theme']['text2']};
+	color: {$CONF['theme']['text2']};
 }
 .creators td {
 	width: 45%;
@@ -768,7 +771,7 @@ EOT;
 	// buffer for copying manageable resources
 	$resource_html = "";
 
-	$BODY .= "<div id='content'><h1>Resource Manager</h1><form action='".$VAR['script_filename']."?page=save_all' method='POST'>";
+	$BODY .= "<div id='content'><h1>Resource Manager</h1><form action='".$CONF['script_filename']."?page=save_all' method='POST'>";
 	
 	// iterate through all the files currently present in the filesystem	
 	foreach (call('get_file_list') as $filename)
@@ -777,13 +780,13 @@ EOT;
 		$order_marker = "<input type='hidden' name='ordering[]' value='$num'/>";
 
 		// if the metadata exists for the file, render the workflow item and add it to the list of found files
-		if (isset($VAR['data'][$filename])) {
+		if (isset($DATA[$filename])) {
 			array_push($files_found_list, $filename);
 		}
 		else
 		{
 			// if the file exists but the metadata doesn't, render a new workflow item with the default metadata
-			$data = $VAR['default_metadata'];
+			$data = $CONF['default_metadata'];
 			$data['filename'] = $filename;
 			$resource_html .= "<div class='manageable new_resource' id='resource$num'>".call('generate_manageable_item', array($data, $num))."$order_marker</div>";
 			$new_file_count++;
@@ -793,14 +796,14 @@ EOT;
 
 	
 	// loop through all the metadata entries
-	foreach ($VAR['data'] as $key => $value) {
+	foreach ($DATA as $key => $value) {
 
 		// numbered field used for ordering
 		$order_marker = "<input type='hidden' name='ordering[]' value='$num'/>";
 
 		// something
 		if (in_array($key, $files_found_list))
-			$resource_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($VAR['data'][$key], $num))."$order_marker</div>";
+			$resource_html .= "<div class='manageable' id='resource$num'>".call('generate_manageable_item', array($DATA[$key], $num))."$order_marker</div>";
 		else
 			$resource_html .= "<div class='manageable' id='resource$num'><h1>$key</h1><p>Resource not found <a href='#' onclick='javascript:$(\"#resource$num\").remove();return false;'>delete metadata</a></p><input type='hidden' name='filename$num' value='$key'/><input type='hidden' name='missing[]' value='$num'/>$order_marker</div>";
 		$num++;
@@ -840,7 +843,7 @@ EOT;
 // returns the html for a single item on the resource workflow
 function generate_manageable_item($params)
 {
-	global $VAR;
+	global $CONF;
 
 	$data = $params[0];
 	$num = $params[1];
@@ -852,7 +855,7 @@ function generate_manageable_item($params)
 		<table>";
 		
 	// optional fields
-	foreach ($VAR['fields'] as $fieldname)
+	foreach ($CONF['fields'] as $fieldname)
 		$item_html .= call_optional("generate_field_input_$fieldname", array($data, $num));
 
 	$item_html .= "</table>";
@@ -935,13 +938,13 @@ EOT;
 // field definition for manageable item
 function generate_field_input_license($params)
 {
-	global $VAR;
+	global $CONF;
 	$data = $params[0];
 	$num = $params[1];
 
 	// add license dropdown box
 	$license_options = "";
-	foreach ($VAR['licenses'] as $key => $value)	
+	foreach ($CONF['licenses'] as $key => $value)	
 	{
 		if ($data['license'] == $key)
 			$selected = 'selected';
@@ -966,7 +969,7 @@ function generate_field_input_license($params)
  */
 function page_save_all()
 {
-	global $VAR;
+	global $CONF;
 	// check request type
 	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
 		header('HTTP/1.1 405 Method Not Allowed');
@@ -977,8 +980,8 @@ function page_save_all()
 	call('authenticate');
 
 	// keep a copy of the old data. This is used to retain resource metadata in the event that a file is missing..
-	$old_data = $VAR['data'];
-	$VAR['data'] = array();
+	$old_data = $DATA;
+	$DATA = array();
 	
 	// loop once for each resource that is being saved
 	foreach ($_POST["ordering"] as $i)
@@ -990,21 +993,21 @@ function page_save_all()
 		// if the resource is marked as missing, retrieve the data from the old array
 		if (isset($_POST['missing']) && in_array($i, $_POST['missing']))
 		{
-			 $VAR['data'][$filename] = $old_data[$filename];
+			 $DATA[$filename] = $old_data[$filename];
 			continue;
 		}
 
 		// scan through each parameter in the post array
 		foreach ($_POST as $key => $value)
-			// if parameter is of the form fieldname.number - it is a field and should be added to data array in the form $VAR['data']['example.doc']['title'] = "Example document"
+			// if parameter is of the form fieldname.number - it is a field and should be added to data array in the form $DATA['example.doc']['title'] = "Example document"
 			if (preg_match("/(.*)($i\$)/", $key, $matches))
-				$VAR['data'][$filename][$matches[1]] = $value;
+				$DATA[$filename][$matches[1]] = $value;
 	}
 	
 	call('save_data');
 
 	// redirect to the resource manager
-	header('Location:'.$VAR['script_url'].'?page=resource_manager');
+	header('Location:'.$CONF['script_url'].'?page=resource_manager');
 }
 
 
@@ -1014,27 +1017,27 @@ function page_save_all()
 
 // Public function for the RSS feed
 function page_rss() {
-	global $VAR;
+	global $CONF, $DATA;
         
 	header("Content-type: application/rss+xml");
 
 	print 
 '<?xml version="1.0" encoding="utf-8" ?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
-	<title>'.$VAR['repository_name'].'</title>
-	<link>'.$VAR['script_url'].'</link>
-	<atom:link rel="self" href="'.$VAR['script_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
-	<description>'.$VAR['repository_tagline'].'</description>
+	<title>'.$CONF['repository_name'].'</title>
+	<link>'.$CONF['script_url'].'</link>
+	<atom:link rel="self" href="'.$CONF['script_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
+	<description>'.$CONF['repository_tagline'].'</description>
 	<language>en</language>
 ';
 	// loop through all files which are public accessible
 	foreach(call('get_resource_list') as $filename)
 	{
-		$data = $VAR['data'][$filename];
+		$data = $DATA[$filename];
                 print '	<item>
 ';
 		//  fields
-		foreach ($VAR['fields'] as $fieldname)
+		foreach ($CONF['fields'] as $fieldname)
 			print call_optional("generate_field_rss_$fieldname", $data);
 		print '	</item>
 ';
@@ -1067,8 +1070,8 @@ function generate_field_rss_date($data)
 // field definition for rss
 function generate_field_rss_download($data)
 {
-	global $VAR;
-	$resource_url = htmlentities($VAR['script_url'].'?file='.$data['filename']);
+	global $CONF;
+	$resource_url = htmlentities($CONF['script_url'].'?file='.$data['filename']);
 	return '		<link>'.$resource_url.'</link>
 		<guid>'.$resource_url.'</guid>
 ';
@@ -1081,7 +1084,7 @@ function generate_field_rss_download($data)
 
 // public function for RDF
 function page_rdf() {
-        global $VAR;
+        global $CONF, $DATA;
 
 	if (isset($_REQUEST['file']))
 		$resource_list = array($_REQUEST['file']);
@@ -1097,11 +1100,11 @@ function page_rdf() {
 	// loop through all files which are public accessible
         foreach($resource_list as $filename)
 	{
-		$data = $VAR['data'][$filename];
-		$resource_uri = htmlentities($VAR['script_url'].'?file='.$filename);
+		$data = $DATA[$filename];
+		$resource_uri = htmlentities($CONF['script_url'].'?file='.$filename);
 
 		//  fields
-		foreach ($VAR['fields'] as $fieldname)
+		foreach ($CONF['fields'] as $fieldname)
 			print call_optional("generate_field_rdf_$fieldname", array($data, $resource_uri));
 	}
 
@@ -1137,7 +1140,7 @@ function generate_field_rdf_description($params)
 // field definition for RDF
 function generate_field_rdf_creators($params)
 {
-	global $VAR;
+	global $CONF;
 	$data = $params[0];
 	$resource_uri = $params[1];
 
@@ -1145,7 +1148,7 @@ function generate_field_rdf_creators($params)
 	if (isset($data["creators"]))
 			foreach($data['creators'] as $creator)
 			{
-				$creator_uri = $VAR['script_url']."?page=creators#".urlencode($creator);
+				$creator_uri = $CONF['script_url']."?page=creators#".urlencode($creator);
 				$xml .=
 "	<rdf:Description rdf:about='$resource_uri'>
 		<dct:creator rdf:resource='$creator_uri'/>
@@ -1178,11 +1181,11 @@ function generate_field_rdf_date($params)
 // field definition for RDF
 function generate_field_rdf_download($params)
 {
-	global $VAR;
+	global $CONF;
 	$data = $params[0];
 	$resource_uri = $params[1];
 
-	$file_url = htmlentities($VAR['base_url'].$data['filename']);
+	$file_url = htmlentities($CONF['base_url'].$data['filename']);
 
 	return 
 "	<rdf:Description rdf:about='$resource_uri'>
@@ -1195,7 +1198,7 @@ function generate_field_rdf_download($params)
 // public function for unique people
 // allows them to be assigned a URI
 function page_creators() {
-	global $VAR, $BODY;
+	global $CONF, $BODY;
 
 	$BODY .= "<div id='content'><h1>Contributors.</h1><ul>";
 	foreach (get_unique_creators() as $creator)
@@ -1209,13 +1212,13 @@ function page_creators() {
 
 // get a list of all the unique creators
 function get_unique_creators() {
-	global $VAR;
+	global $CONF, $DATA;
 
 	$list = array();
 
 	foreach (call('get_resource_list') as $filename)
-		if (isset($VAR['data'][$filename]['creators']))
-			foreach($VAR['data'][$filename]['creators'] as $creator)	
+		if (isset($DATA[$filename]['creators']))
+			foreach($DATA[$filename]['creators'] as $creator)	
 				array_push($list, $creator);
 
 	natcasesort($list);
