@@ -93,21 +93,15 @@ $CONF['metadata_filename'] = "resourcedata";
 // The name of the plugins folder
 $CONF['plugin_dir'] = "plugins";
 
+// global variable to allow function overriding
+$FUNCTION_OVERRIDE = array(
+//	'page_browse'=>'page_browse_new',
+);
 
-/******************************
-   Entry Point for RedFeather
- ******************************/
 
-// If a plugin directory exists, open it and include any php files it contains.
-// Some variables and functions could be overwritten at this point, depending on the plugins installed.
-if(is_dir($CONF['plugin_dir']))
-	if ($dh = opendir($CONF['plugin_dir']))
-	{ 
-		while (($file = readdir($dh)) !== false) 
-			if(is_file($CONF['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file))
-				include($CONF['plugin_dir'].'/'.$file);
-		closedir($dh);
-	}
+/*********************
+   Utility Functions
+ *********************/
 
 // global variable to store resource data
 $DATA = array();
@@ -118,56 +112,32 @@ $CSS = '';
 // global variable to buffer Javascript
 $JS = '';
 
-// Load the resource metadata
-call('load_data');
-
-// Loads the required page according to the get parameters.
-// publically accessible functions should be prefixed with "page_".
-// If a "file" parameter has been specified in isolation, load the resource page.
-// If no parameter has been specified, use the default.
-if(isset($_REQUEST['page']))
-	call('page_'.$_REQUEST['page']);
-else if (isset($_REQUEST['file']))
-	call('page_resource');
-else
-	call($CONF['default_page']);
-
-
-/*********************
-   Utility Functions
- *********************/
-
 // Calls a function within RedFeather to provide a simple plugin architecture.
 // To maintain compatibility with PHP 4.0, functions should only take a single parameter - which is passed through to the target.
-// When a named function is called, the function_map is first checked to see if an override function has been assigned.
+// When a named function is called, the FUNCTION_OVERRIDE is first checked to see if an override function has been assigned.
 // If it has, that function is called, otherwise it will call the function directly.
 function call($function, $param=null)
 {
-	global $function_map;
-	if (isset($function_map[$function]))
-		return call_user_func($function_map[$function], $param);
+	global $FUNCTION_OVERRIDE;
+	if (isset($FUNCTION_OVERRIDE[$function]))
+		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
 	else return call_user_func($function, $param);
 }
 
 // as above but doesn't give an error if a non-existent function is called
 function call_optional($function, $param=null)
 {
-	global $function_map;
-	if (isset($function_map[$function]))
-		return call_user_func($function_map[$function], $param);
+	global $FUNCTION_OVERRIDE;
+	if (isset($FUNCTION_OVERRIDE[$function]))
+		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
 	else if (function_exists($function))
 		return call_user_func($function, $param);
 	else return;
 }
 
-// Maps function names to functions, this allows you to override any RedFeather function.
-$function_map = array(
-	// 'page_browse'=>'page_browse_new',
-);
-
 // function to provide simple authentication functionality
 function authenticate() {
-	global $CONF, $BODY, $function_map;
+	global $CONF, $BODY, $FUNCTION_OVERRIDE;
 
 	// check the session for an authenticated user and return to the parent function if valid.
 	session_set_cookie_params(0, $CONF['script_url']);
@@ -225,16 +195,67 @@ function get_resource_list()
 
 	return $list;
 }
- 
-// render using template
-function render_template()
+
+// Public function for CSS
+function page_css()
 {
-	global $CONF, $BODY, $CSS, $JS;
+	global $CONF, $CSS;
 
 	$page_width = $CONF['element_size']['preview_width']+$CONF['element_size']['metadata_gap']+$CONF['element_size']['metadata_width'];
 
-	// add default CSS
+	// base CSS
 	$base_css = <<<EOT
+/* http://meyerweb.com/eric/tools/css/reset/ 
+   v2.0 | 20110126
+   License: none (public domain)
+*/
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed, 
+figure, figcaption, footer, header, hgroup, 
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article, aside, details, figcaption, figure, 
+footer, header, hgroup, menu, nav, section {
+	display: block;
+}
+body {
+	line-height: 1;
+}
+ol, ul {
+	list-style: none;
+}
+blockquote, q {
+	quotes: none;
+}
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content: '';
+	content: none;
+}
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+/* RedFeather CSS */
+
 body { 
 	font-family: {$CONF['theme']['font']};
 	font-size: 14px;
@@ -307,15 +328,31 @@ a:hover, a:active {
 	clear: both;
 }
 EOT;
+	header('Content-type: text/css');
+	print $base_css.$CSS;
+}
+
+// Public function for getting js
+function page_javascript()
+{
+	global $JS;
+
+	header('Content-type: text/javascript');
+	print $JS;
+}
+ 
+// render using template
+function render_template()
+{
+	global $CONF, $BODY, $CSS, $JS;
 
 	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
 	print 
 		'<html><head>
 			<title>'.$CONF['repository_name'].'</title>
 			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-			<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
-			<style type="text/css">'.$base_css.$CSS.'</style>
-			<script type="text/javascript">'.$JS.'</script>
+			<script src="index.php?page=javascript" type="text/javascript"></script>
+			<link rel="stylesheet" type="text/css" href="index.php?page=css"/>
 		</head>
 		<body>
 			<div id="header"><div class="center">
@@ -414,13 +451,7 @@ function save_data()
    Browse/Resource Module
 ***************************/
 
-// Browse page for RedFeather.
-// Lists all the resources that have been annotated and provides a facility to search.
-function page_browse()
-{
-	global $CONF, $DATA, $BODY, $CSS;
-
-	$CSS .= <<<EOT
+$CSS .= <<<EOT
 .resource {
 	margin-bottom: 12px;
 }
@@ -434,8 +465,69 @@ function page_browse()
 .toolbar_browse > li > a > img {
 	vertical-align: text-bottom;
 }
+#preview {
+	width: {$CONF['element_size']['preview_width']}px;
+	max-height: {$CONF['element_size']['preview_height']}px;
+	overflow: hidden;
+	text-align: center;
+}
+#preview iframe {
+	width: {$CONF['element_size']['preview_width']}px;
+	height: {$CONF['element_size']['preview_height']}px;
+}
+#preview .message {
+	display: none;
+	text-align: justify;
+}
+#preview.message_inserted iframe {
+	margin-top: -{$CONF['element_size']['preview_height']}px;
+}
+#preview.message_inserted .message {
+	height: {$CONF['element_size']['preview_height']}px;
+	display: block;
+}
+.metadata {
+	width: {$CONF['element_size']['metadata_width']}px;
+	float: right;
+	margin-left: {$CONF['element_size']['metadata_gap']}px;
+	padding:0;
+}
+.metadata_table {
+	margin-bottom: 6px;
+	margin-left: 6px;
+	font-size: 12px;
+}
+tr>:first-child {
+	color: {$CONF['theme']['text2']};
+	padding-right: 12px;
+}
 EOT;
 
+$JS .= <<<EOT
+function filter(){
+	var filter = $("#filter").val();
+ 	if(filter == ""){
+		$(".resource").show();  
+		return;
+	}
+	$(".resource").hide();
+	$(".resource:contains("+$("#filter").val()+")").show();
+}
+
+function preview_fallback() {
+	var d = document.getElementById('preview');
+	d.className = d.className + ' message_inserted';
+}
+
+window.setTimeout('preview_fallback()', 10000);
+EOT;
+
+// Browse page for RedFeather.
+// Lists all the resources that have been annotated and provides a facility to search.
+function page_browse()
+{
+	global $CONF, $DATA, $BODY;
+	
 	$BODY .= '<div id="content">'.call('generate_toolbar', 'browse');
 	
 	// div for resource list
@@ -463,21 +555,7 @@ EOT;
 // toolbar item for browse page
 function generate_toolbar_item_browse_search()
 {
-	global $CONF;
-
-	return 
-		'Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
-		<script type="text/javascript">
-			function filter(){
-				var filter = $("#filter").val();
- 				if(filter == ""){
-					$(".resource").show();  
-					return;
-				}
-				$(".resource").hide();
-				$(".resource:contains("+$("#filter").val()+")").show();
-			}
-		</script>';
+	return 'Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />';
 }
 
 // toolbar item for browse page
@@ -498,7 +576,7 @@ function generate_toolbar_item_browse_rdf()
 // View the resource preview, metadata and social networking plugin
 function page_resource()
 {
-	global $CONF, $DATA, $BODY, $CSS;
+	global $CONF, $DATA, $BODY;
 	
 	// check that the file requested actually exists
 	if (!isset($_REQUEST['file']) || !isset($DATA[$_REQUEST['file']]))
@@ -510,30 +588,6 @@ function page_resource()
 
 	// get the resource metadata and compute urls
 	$data = $DATA[$_REQUEST['file']];
-
-	$CSS .= <<<EOT
-#preview {
-	width: {$CONF['element_size']['preview_width']}px;
-	max-height: {$CONF['element_size']['preview_height']}px;
-	overflow: hidden;
-	text-align: center;
-}
-#preview iframe {
-	width: {$CONF['element_size']['preview_width']}px;
-	height: {$CONF['element_size']['preview_height']}px;
-}
-#preview .message {
-	display: none;
-	text-align: justify;
-}
-#preview.message_inserted iframe {
-	margin-top: -{$CONF['element_size']['preview_height']}px;
-}
-#preview.message_inserted .message {
-	height: {$CONF['element_size']['preview_height']}px;
-	display: block;
-}
-EOT;
 
 	$BODY .=
 		'<div id="content">
@@ -616,15 +670,6 @@ function generate_preview($params)
 	// if the function failed, attempt to render using googledocs previewer
 	else
 	{
-		global $JS;
-
-		$JS .= <<<EOT
-function preview_fallback() {
-	var d = document.getElementById('preview');
-	d.className = d.className + ' message_inserted';
-}
-window.setTimeout('preview_fallback()', 10000);
-EOT;
 		// create error message in case the widget fails to load
 		$error_fallback = "
 			<div class='message'><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>";
@@ -637,26 +682,7 @@ EOT;
 // returns the metadata table for the resource data specified
 function generate_metadata_table($data)
 {
-	global $CONF, $CSS;
-
-	// add custom CSS
-	$CSS .= <<<EOT
-.metadata {
-	width: {$CONF['element_size']['metadata_width']}px;
-	float: right;
-	margin-left: {$CONF['element_size']['metadata_gap']}px;
-	padding:0;
-}
-.metadata_table {
-	margin-bottom: 6px;
-	margin-left: 6px;
-	font-size: 12px;
-}
-tr>:first-child {
-	color: {$CONF['theme']['text2']};
-	padding-right: 12px;
-}
-EOT;
+	global $CONF;
 
 	$table = '<table class="metadata_table"><tbody>';
 	
@@ -712,20 +738,9 @@ function generate_field_output_download($data)
 
 /***************************
    Resource Manager Module
- ***************************
+ ***************************/
 
-/* Public function for the RedFeather resource manager
-	Provides an interface to annotate all the files accessible to RedFeather.
-	User must be authenticated to access this page.
-	New files are added to the top of the list.
-	Files which have metadata, but are missing from the filesystem are listed as such and provided with a link allowing them to be deleted if required. */
-function page_resource_manager()
-{
-	global $CONF, $DATA, $BODY, $CSS, $JS;
-
-	call('authenticate');
-	
-	$CSS .= <<<EOT
+$CSS .= <<<EOT
 .new_resource {
 	border-left: 1px dashed {$CONF['theme']['linkcolor']};
 	padding-left: 6px;
@@ -762,6 +777,44 @@ tr>:first-child {
 }
 EOT;
 
+$JS .= <<<EOT
+$(document).ready(function() {
+	$('<div style="text-size:8px;"><a href="#" class="up">up</a>/<a href="#" class="down">down</a></div>').insertAfter('.manageable > h1');
+	$('.up').click(function() {
+		var item = $(this).parent().parent();
+		var other = item.prev('.manageable');
+		if (other.html() == null) return false;
+		item.detach().insertBefore(other);
+		return false;
+	});
+	$('.down').click(function() {
+		var item = $(this).parent().parent();
+		var other = item.next('.manageable');
+		if (other.html() == null) return false;
+		item.detach().insertAfter(other);
+		return false;
+	});
+});
+
+function add_creator(num) {
+	var creators = $("#creators"+num);
+	var addcreator = $("#addcreator"+num);
+	creators.append('<tr><td><input name="creators'+num+'[]" autocomplete="off" /></td><td><input name="emails'+num+'[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
+	addcreator.remove().appendTo(creators);
+}
+EOT;
+
+/* Public function for the RedFeather resource manager
+	Provides an interface to annotate all the files accessible to RedFeather.
+	User must be authenticated to access this page.
+	New files are added to the top of the list.
+	Files which have metadata, but are missing from the filesystem are listed as such and provided with a link allowing them to be deleted if required. */
+function page_resource_manager()
+{
+	global $CONF, $DATA, $BODY;
+
+	call('authenticate');
+	
 	// counter for the number of new files detected
 	$new_file_count = 0;
 	// counter for the total number of files
@@ -817,26 +870,6 @@ EOT;
 	$BODY .= "<input type='submit' value='Save'/>";
 	$BODY .= "</form></div>";
 
-	// adding the javascript for up/down arrows
-	$JS .= <<<EOT
-$(document).ready(function() {
-	$('<div style="text-size:8px;"><a href="#" class="up">up</a>/<a href="#" class="down">down</a></div>').insertAfter('.manageable > h1');
-	$('.up').click(function() {
-		var item = $(this).parent().parent();
-		var other = item.prev('.manageable');
-		if (other.html() == null) return false;
-		item.detach().insertBefore(other);
-		return false;
-	});
-	$('.down').click(function() {
-		var item = $(this).parent().parent();
-		var other = item.next('.manageable');
-		if (other.html() == null) return false;
-		item.detach().insertAfter(other);
-		return false;
-	});
-});
-EOT;
 	call('render_template');
 }
 
@@ -913,24 +946,11 @@ function generate_field_input_creators($params)
 	// add the new creator button
 	$html .= "
 					<tr id='addcreator$num'>
-						<td><a creator$num' href='#' onclick='javascript:add_creator$num();return false;'>add new creator</a></td>
+						<td><a creator$num' href='#' onclick='javascript:add_creator($num);return false;'>add new creator</a></td>
 					</tr>
 				</table>
 			</td>
 		</tr>";
-
-	global $JS;
-
-	// add the javascript function for the creator widget
-	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
-	$JS .= <<<EOT
-function add_creator$num() {
-	var creators = $("#creators$num");
-	var addcreator = $("#addcreator$num");
-	creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
-	addcreator.remove().appendTo(creators);
-}
-EOT;
 
 	return $html;
 }
@@ -1224,3 +1244,37 @@ function get_unique_creators() {
 	natcasesort($list);
 	return array_unique($list);
 }
+
+
+/******************************
+   Entry Point for RedFeather
+ ******************************/
+
+// If a plugin directory exists, open it and include any php files it contains.
+// Some variables and functions could be overwritten at this point, depending on the plugins installed.
+if(is_dir($CONF['plugin_dir']))
+	if ($dh = opendir($CONF['plugin_dir']))
+	{ 
+		while (($file = readdir($dh)) !== false) 
+			if(is_file($CONF['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file))
+				include($CONF['plugin_dir'].'/'.$file);
+		closedir($dh);
+	}
+
+// Load the resource metadata
+call('load_data');
+
+// Loads the required page according to the get parameters.
+// publically accessible functions should be prefixed with "page_".
+// If a "file" parameter has been specified in isolation, load the resource page.
+// If no parameter has been specified, use the default.
+if(isset($_REQUEST['page']))
+	call('page_'.$_REQUEST['page']);
+else if (isset($_REQUEST['file']))
+	call('page_resource');
+else
+	call($CONF['default_page']);
+
+/*******
+   End
+ *******/
