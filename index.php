@@ -3,20 +3,15 @@ ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ALL);
 
 // Global variable for storing all aspects of RedFeather's current state.
 $VAR = array(); 
-// Global variable to act as buffer for all program output
-$CSS = '';
-$JS = '';
-$BODY = '';
 
-/*	
-	RedFeather Configuration
-*/	
+/****************************	
+   RedFeather Configuration
+ ****************************/	
+
 	// Text to use in the site header.
-	$VAR['header_text'] = array(
-		'Red', // coloured section of main header
-		'Feather', // plain section of main header
-		'Lightweight Resource Exhibition and Discovery', // site tagline
-	);
+	$VAR['repository_name'] = 'RedFeather';
+	$VAR['repository_tagline'] = 'Lightweight Resource Exhibition and Discovery';
+
 	// Colour scheme for the repository.
 	$VAR['theme'] = array(
 		'linkcolor'=>'#AC1F1F', // colour used for hyperlinks, banner trim and the coloured section of the header 
@@ -40,11 +35,12 @@ $BODY = '';
 	);
 
 	// Array of username/password combinations that are allowed to access the resource manager
-	$VAR['users'] = array('admin'=>'shoes');
+	$VAR['users'] = array('admin'=>'password');
 
-/* 
-	End of RedFeather configuration 
-*/
+
+/**************************
+   Advanced Configuration
+ **************************/
 
 // Field definitions
 $VAR['fields'] = array(
@@ -97,10 +93,48 @@ $VAR['metadata_filename'] = "resourcedata";
 // The name of the plugins folder
 $VAR['plugin_dir'] = "plugins";
 
-// Maps function names to functions, this allows you to override any RedFeather function.
-$function_map = array(
-	// 'page_browse'=>'page_browse_new',
-);
+
+/******************************
+   Entry Point for RedFeather
+ ******************************/
+
+// If a plugin directory exists, open it and include any php files it contains.
+// Some variables and functions could be overwritten at this point, depending on the plugins installed.
+if(is_dir($VAR['plugin_dir']))
+	if ($dh = opendir($VAR['plugin_dir']))
+	{ 
+		while (($file = readdir($dh)) !== false) 
+			if(is_file($VAR['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file))
+				include($VAR['plugin_dir'].'/'.$file);
+		closedir($dh);
+	}
+
+
+// Buffer for page body content
+$BODY = '';
+// Buffer for CSS
+$CSS = '';
+// Buffer for Javascript
+$JS = '';
+
+// Load the resource metadata
+call('load_data');
+
+// Loads the required page according to the get parameters.
+// publically accessible functions should be prefixed with "page_".
+// If a "file" parameter has been specified in isolation, load the resource page.
+// If no parameter has been specified, use the default.
+if(isset($_REQUEST['page']))
+	call('page_'.$_REQUEST['page']);
+else if (isset($_REQUEST['file']))
+	call('page_resource');
+else
+	call($VAR['default_page']);
+
+
+/*********************
+   Utility Functions
+ *********************/
 
 // Calls a function within RedFeather to provide a simple plugin architecture.
 // To maintain compatibility with PHP 4.0, functions should only take a single parameter - which is passed through to the target.
@@ -125,170 +159,10 @@ function call_optional($function, $param=null)
 	else return;
 }
 
-// If a plugin directory exists, open it and include any php files it contains.
-// Some variables and functions could be overwritten at this point, depending on the plugins installed.
-if(is_dir($VAR['plugin_dir']))
-	if ($dh = opendir($VAR['plugin_dir']))
-	{ 
-		while (($file = readdir($dh)) !== false) 
-			if(is_file($VAR['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file))
-				include($VAR['plugin_dir'].'/'.$file);
-		closedir($dh);
-	}
-
-// Load the resource metadata
-call('load_data');
-
-// Loads the required page according to the get parameters.
-// publically accessible functions should be prefixed with "page_".
-// If a "file" parameter has been specified in isolation, load the resource page.
-// If no parameter has been specified, use the default.
-if(isset($_REQUEST['page']))
-	call('page_'.$_REQUEST['page']);
-else if (isset($_REQUEST['file']))
-	call('page_resource');
-else
-	call($VAR['default_page']);
-
-/*
-	Functions to interact with the local file system.
-*/
-// returns a list of all files within the RedFeather resource scope (i.e. that can be annotated)
-function get_file_list()
-{
-	global $VAR;
-	$file_list = array();
-	$dir = "./";
-	foreach (scandir($dir) as $file)
-	{
-		// exclude directories, hidden files, the RedFeather file and the metadata file
-		if( is_dir($dir.$file) || preg_match("/^\./", $file) || $file == $VAR['script_filename'] || $file == $VAR['metadata_filename']) continue;
-		array_push($file_list, $file);
-	}
-	return $file_list;
-}
-
-
-// returns a absolute hyperlink to a given file
-function get_file_link($filename)
-{
-	global $VAR;
-	return $VAR['base_url'].$filename;
-}
-
-// returns the data a file was last edited
-function get_file_date($filename)
-{
-	return date ("d F Y H:i:s", filemtime($filename));
-}
-
-// returns the image size information from a file (replicates the behaviour of the standard php function
-function get_image_size($filename)
-{
-	return getimagesize($filename);
-}
-
-// loads the resource metadata from the filesystem in the global variable $VAR
-function load_data()
-{
-	global $VAR;
-	$VAR['data'] = unserialize(file_get_contents($VAR['metadata_filename']));
-	if(!is_array($VAR['data']) )
-		$VAR['data']= array();
-}
-
-function save_data()
-{
-	global $VAR;
-	// save the array as serialized PHP
-	$fh = fopen($VAR['metadata_filename'], 'w');
-	fwrite($fh,serialize($VAR['data']));
-	fclose($fh);
-}
-
-/* public function to save data from the resource manager to the local file system
-	Only available for POST requests
-	$_POST['resource_count'] contains the full number of resources being saved.
-	Each resource being saved has an explicit number associated with it in order to group its component metadata fields together.
-	These fields are indexed in the post array using a concatentation of the fieldname and the resource number.
-	Thus, the filename of the 3rd resource is $_POST['filename3'] and the description of the 2nd is $_POST['description2'].
-	Arrays are treated in exactly the same way as single values and can be saved without issue.
-	Files that are designated as "missing" will have their metadata retained even if they are not part of the main POST.
-	The ordering array contains the ids of all the submitted resources in the order they should be saved.
- */
-function page_save_all()
-{
-	global $VAR;
-	// check request type
-	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
-		header('HTTP/1.1 405 Method Not Allowed');
-		return;
-	}
-	
-	// ensure that the user is logged in
-	call('authenticate');
-
-	// keep a copy of the old data. This is used to retain resource metadata in the event that a file is missing..
-	$old_data = $VAR['data'];
-	$VAR['data'] = array();
-	
-	// loop once for each resource that is being saved
-	foreach ($_POST["ordering"] as $i)
-	{
-		// get the filename, this is used as the main index for the resource.  If no filename is posted, ignore this resource.
-		$filename = $_POST["filename$i"];
-		if ($filename == NULL) continue;
-
-		// if the resource is marked as missing, retrieve the data from the old array
-		if (isset($_POST['missing']) && in_array($i, $_POST['missing']))
-		{
-			 $VAR['data'][$filename] = $old_data[$filename];
-			continue;
-		}
-
-		// scan through each parameter in the post array
-		foreach ($_POST as $key => $value)
-			// if parameter is of the form fieldname.number - it is a field and should be added to data array in the form $VAR['data']['example.doc']['title'] = "Example document"
-			if (preg_match("/(.*)($i\$)/", $key, $matches))
-				$VAR['data'][$filename][$matches[1]] = $value;
-	}
-	
-	call('save_data');
-
-	// redirect to the resource manager
-	header('Location:'.$VAR['script_url'].'?page=manage_resources');
-}
-
-/*
-	End of functions to interact with the local file system.
-*/
-
-
-// generates a named toolbar
-function generate_toolbar($toolbar)
-{
-	global $VAR;
-
-	$html ="<ul class='toolbar_$toolbar'>";
-
-	foreach($VAR['toolbars'][$toolbar] as $tool)
-		$html .= "<li>".call("generate_toolbar_item_".$toolbar."_".$tool)."</li>";
-
-	return $html .= "</ul>";
-}
-
-// function to get a list of all the complete resources (i.e. with matching file/metadata)
-function get_resource_list()
-{
-	global $VAR;
-	$list = array();
-	$files = call('get_file_list');
-
-	foreach ($VAR['data'] as $filename => $data)
-		if (in_array($filename, $files)) array_push($list, $filename);
-
-	return $list;
-} 
+// Maps function names to functions, this allows you to override any RedFeather function.
+$function_map = array(
+	// 'page_browse'=>'page_browse_new',
+);
 
 // function to provide simple authentication functionality
 function authenticate() {
@@ -322,18 +196,39 @@ function authenticate() {
 		</form></div>';
 
 	call('render_template');
-
 	exit;
 }
 
+// generates a named toolbar
+function generate_toolbar($toolbar)
+{
+	global $VAR;
+
+	$html ="<ul class='toolbar_$toolbar'>";
+
+	foreach($VAR['toolbars'][$toolbar] as $tool)
+		$html .= "<li>".call("generate_toolbar_item_".$toolbar."_".$tool)."</li>";
+
+	return $html .= "</ul>";
+}
+
+// function to get a list of all the complete resources (i.e. with matching file/metadata)
+function get_resource_list()
+{
+	global $VAR;
+	$list = array();
+	$files = call('get_file_list');
+
+	foreach ($VAR['data'] as $filename => $data)
+		if (in_array($filename, $files)) array_push($list, $filename);
+
+	return $list;
+}
+ 
 // render using template
 function render_template()
 {
 	global $VAR, $BODY, $CSS, $JS;
-
-	// get the main title of the page
-	$VAR['page_title'] = $VAR['header_text'][0].$VAR['header_text'][1];
-
 
 	$page_width = $VAR['element_size']['preview_width']+$VAR['element_size']['metadata_gap']+$VAR['element_size']['metadata_width'];
 
@@ -379,16 +274,12 @@ a:hover, a:active {
 	margin-bottom: 0;
 }
 .#header h1 > a {
-	color:inherit;
 	text-decoration: none;
-}
-titlespan {
-	color: {$VAR['theme']['linkcolor']};
 }
 #header h2 {
 	font-size: 14px;
 	font-style: italic;
-	color: {$VAR['theme']['text2']};
+	color: {$VAR['theme']['text1']};
 }
 #footer {
 	padding: 6px; 
@@ -419,7 +310,7 @@ EOT;
 	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
 	print 
 		'<html><head>
-			<title>'.$VAR['page_title'].'</title>
+			<title>'.$VAR['repository_name'].'</title>
 			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 			<link rel="stylesheet" href="http://meyerweb.com/eric/tools/css/reset/reset.css" type="text/css" />
 			<style type="text/css">'.$base_css.$CSS.'</style>
@@ -428,7 +319,7 @@ EOT;
 		<body>
 			<div id="header"><div class="center">
 				<h1><a href="'.$VAR['script_url'].'">
-					<span class="titlespan">'.$VAR['header_text'][0].'</span>'.$VAR['header_text'][1].'
+					'.$VAR['repository_name'].'
 				</a></h1>';
 
 	// add the optional 'return link' as documented in the RedFeather configuration section
@@ -436,7 +327,7 @@ EOT;
 		print '<a style="float:right;" href="'.$VAR['return_link']['href'].'">'.$VAR['return_link']['text'].'</a>';
 
 	print '
-				<h2>'.$VAR['header_text'][2].'</h2>
+				<h2>'.$VAR['repository_tagline'].'</h2>
 			</div></div>
 			<div class="center">
 			'.$BODY.'
@@ -455,141 +346,70 @@ function generate_toolbar_item_footer_credit()
 function generate_toolbar_item_footer_resource_manager()
 {
 	global $VAR;
-	return '<a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a>';
+	return '<a href="'.$VAR['script_url'].'?page=resource_manager">Resource Manager</a>';
 }
 
-/*
-	Basic Field Definitions
-*/
-function generate_field_output_creators($data)
-{
-	$html = '';
-	// check that the creator field exists and not an empty placeholder
-	if (isset($data['creators']) && trim($data['creators'][0]) != '')
-	{
-		// table header should be creator/creators depending on size of array
-		$html .= '<tr><td>Creator' .((sizeof($data['creators'])>1) ? 's': '').':</td><td>';
-		// loop through each creator name and create a mailto link for them if required
-		for ($i = 0; $i < sizeof($data['creators']); $i++)
-			if (trim($data['emails'][$i]) == '')
-				$html .= $data['creators'][$i].'<br/>';
-			else
-				$html .= '<a href="mailto:'.$data['emails'][$i].'">'.$data['creators'][$i].'</a><br/>';
-		$html .= '</td></tr>';
-	}
 
-	return $html;
-}
-
-function generate_field_output_date($data)
-{
-	return '<tr><td>Updated:</td><td>'.call('get_file_date', $data['filename']).'</td></tr>';
-}
-
-function generate_field_output_license($data)
+/****************************************************
+   Functions to interact with the local file system
+*****************************************************/
+// returns a list of all files within the RedFeather resource scope (i.e. that can be annotated)
+function get_file_list()
 {
 	global $VAR;
-	return '<tr><td>License:</td><td>'.$VAR['licenses'][$data['license']].'</td></tr>';
+	$file_list = array();
+	$dir = "./";
+	foreach (scandir($dir) as $file)
+	{
+		// exclude directories, hidden files, the RedFeather file and the metadata file
+		if( is_dir($dir.$file) || preg_match("/^\./", $file) || $file == $VAR['script_filename'] || $file == $VAR['metadata_filename']) continue;
+		array_push($file_list, $file);
+	}
+	return $file_list;
 }
 
-function generate_field_output_download($data)
-{
-	return '<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', $data['filename']).'">'.$data['filename'].'</a></td></tr>';
-}
 
-function generate_field_input_title($params)
-{
-	$data = $params[0];
-	$num = $params[1];
-
-	return "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
-}
-
-function generate_field_input_description($params)
-{
-	$data = $params[0];
-	$num = $params[1];
-
-	return "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>";
-}
-
-function generate_field_input_creators($params)
-{
-	$data = $params[0];
-	$num = $params[1];
-
-	$html = "
-		<tr>
-			<td>Creators</td>
-			<td>
-				<table id='creators$num' class='creators'>
-					<tr>
-						<th>Name</th>
-						<th>Email</th>
-					</tr>";
-
-	// check if there are creators currently set for this resource
-	if (isset($data['creators']))
-		// loop through the creators and create the creator/email table rows
-		for ($i = 0; $i < sizeof($data['creators']); $i++)
-		{
-			$html .= "
-				<tr>
-					<td><input name='creators".$num."[]' value='".$data['creators'][$i]."' autocomplete='off' /></td>
-					<td><input name='emails".$num."[]' value='".$data['emails'][$i]."' autocomplete='off' /></td>
-					<td><a href='#' onclick='javascript:$(this).parent().parent().remove(); return false;'>remove</a></td>
-				</tr>";
-
-		}
-	// add the new creator button
-	$html .= "
-					<tr id='addcreator$num'>
-						<td><a creator$num' href='#' onclick='javascript:add_creator$num();return false;'>add new creator</a></td>
-					</tr>
-				</table>
-			</td>
-		</tr>";
-
-	global $JS;
-
-	// add the javascript function for the creator widget
-	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
-	$JS .= <<<EOT
-function add_creator$num() {
-	var creators = $("#creators$num");
-	var addcreator = $("#addcreator$num");
-	creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
-	addcreator.remove().appendTo(creators);
-}
-EOT;
-
-	return $html;
-}
-
-function generate_field_input_license($params)
+// returns a absolute hyperlink to a given file
+function get_file_link($filename)
 {
 	global $VAR;
-	$data = $params[0];
-	$num = $params[1];
-
-	// add license dropdown box
-	$license_options = "";
-	foreach ($VAR['licenses'] as $key => $value)	
-	{
-		if ($data['license'] == $key)
-			$selected = 'selected';
-		else
-			$selected = '';
-
-		$license_options .= "<option value='$key' $selected autocomplete='off'>$value</option>";
-	}
-
-	return "<tr><td class='table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
+	return $VAR['base_url'].$filename;
 }
 
-/*
-	Public functions.
-*/ 
+// returns the data a file was last edited
+function get_file_date($filename)
+{
+	return date ("d F Y H:i:s", filemtime($filename));
+}
+
+// returns the image size information from a file (replicates the behaviour of the standard php function
+function get_image_size($filename)
+{
+	return getimagesize($filename);
+}
+
+// loads the resource metadata from the filesystem in the global variable $VAR
+function load_data()
+{
+	global $VAR;
+	$VAR['data'] = unserialize(file_get_contents($VAR['metadata_filename']));
+	if(!is_array($VAR['data']) )
+		$VAR['data']= array();
+}
+// saves the resource metadata to the filesystem
+function save_data()
+{
+	global $VAR;
+	// save the array as serialized PHP
+	$fh = fopen($VAR['metadata_filename'], 'w');
+	fwrite($fh,serialize($VAR['data']));
+	fclose($fh);
+}
+
+
+/**************************
+   Browse/Resource Module
+***************************/
 
 // Browse page for RedFeather.
 // Lists all the resources that have been annotated and provides a facility to search.
@@ -637,6 +457,7 @@ EOT;
 }
 
 
+// toolbar item for browse page
 function generate_toolbar_item_browse_search()
 {
 	global $VAR;
@@ -656,12 +477,14 @@ function generate_toolbar_item_browse_search()
 		</script>';
 }
 
+// toolbar item for browse page
 function generate_toolbar_item_browse_rss()
 {
 	global $VAR;
 	return '<a href="'.$VAR['script_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>';
 }
 
+// toolbar item for browse page
 function generate_toolbar_item_browse_rdf()
 {
 
@@ -721,7 +544,7 @@ EOT;
 	call('render_template');
 }
 
-// toolbar
+// toolbar item for resource page
 function generate_toolbar_item_resource_metadata()
 {
 	global $VAR;
@@ -732,6 +555,7 @@ function generate_toolbar_item_resource_metadata()
 		'.call('generate_metadata_table', $data);
 }
 
+// toolbar item for resource page
 function generate_toolbar_item_resource_comments()
 {
 	global $VAR;
@@ -835,20 +659,64 @@ EOT;
 	
 	//  fields
 	foreach ($VAR['fields'] as $fieldname)
-	{
 		$table .= call_optional("generate_field_output_$fieldname", $data);
-	}
 
 	$table .= '</tbody></table>';
 	return $table;
 }
+
+
+// field definition for metadata table
+function generate_field_output_creators($data)
+{
+	$html = '';
+	// check that the creator field exists and not an empty placeholder
+	if (isset($data['creators']) && trim($data['creators'][0]) != '')
+	{
+		// table header should be creator/creators depending on size of array
+		$html .= '<tr><td>Creator' .((sizeof($data['creators'])>1) ? 's': '').':</td><td>';
+		// loop through each creator name and create a mailto link for them if required
+		for ($i = 0; $i < sizeof($data['creators']); $i++)
+			if (trim($data['emails'][$i]) == '')
+				$html .= $data['creators'][$i].'<br/>';
+			else
+				$html .= '<a href="mailto:'.$data['emails'][$i].'">'.$data['creators'][$i].'</a><br/>';
+		$html .= '</td></tr>';
+	}
+
+	return $html;
+}
+
+// field definition for metadata table
+function generate_field_output_date($data)
+{
+	return '<tr><td>Updated:</td><td>'.call('get_file_date', $data['filename']).'</td></tr>';
+}
+
+// field definition for metadata table
+function generate_field_output_license($data)
+{
+	global $VAR;
+	return '<tr><td>License:</td><td>'.$VAR['licenses'][$data['license']].'</td></tr>';
+}
+
+// field definition for metadata table
+function generate_field_output_download($data)
+{
+	return '<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', $data['filename']).'">'.$data['filename'].'</a></td></tr>';
+}
+
+
+/***************************
+   Resource Manager Module
+ ***************************
 
 /* Public function for the RedFeather resource manager
 	Provides an interface to annotate all the files accessible to RedFeather.
 	User must be authenticated to access this page.
 	New files are added to the top of the list.
 	Files which have metadata, but are missing from the filesystem are listed as such and provided with a link allowing them to be deleted if required. */
-function page_manage_resources()
+function page_resource_manager()
 {
 	global $VAR, $BODY, $CSS, $JS;
 
@@ -900,7 +768,7 @@ EOT;
 	// buffer for copying manageable resources
 	$resource_html = "";
 
-	$BODY .= "<div id='content'><h1>Manage Resources</h1><form action='".$VAR['script_filename']."?page=save_all' method='POST'>";
+	$BODY .= "<div id='content'><h1>Resource Manager</h1><form action='".$VAR['script_filename']."?page=save_all' method='POST'>";
 	
 	// iterate through all the files currently present in the filesystem	
 	foreach (call('get_file_list') as $filename)
@@ -985,13 +853,164 @@ function generate_manageable_item($params)
 		
 	// optional fields
 	foreach ($VAR['fields'] as $fieldname)
-	{
 		$item_html .= call_optional("generate_field_input_$fieldname", array($data, $num));
-	}
+
 	$item_html .= "</table>";
 
 	return $item_html;
 }
+
+// field definition for manageable item
+function generate_field_input_title($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	return "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
+}
+
+// field definition for manageable item
+function generate_field_input_description($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	return "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>";
+}
+
+// field definition for manageable item
+function generate_field_input_creators($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	$html = "
+		<tr>
+			<td>Creators</td>
+			<td>
+				<table id='creators$num' class='creators'>
+					<tr>
+						<th>Name</th>
+						<th>Email</th>
+					</tr>";
+
+	// check if there are creators currently set for this resource
+	if (isset($data['creators']))
+		// loop through the creators and create the creator/email table rows
+		for ($i = 0; $i < sizeof($data['creators']); $i++)
+		{
+			$html .= "
+				<tr>
+					<td><input name='creators".$num."[]' value='".$data['creators'][$i]."' autocomplete='off' /></td>
+					<td><input name='emails".$num."[]' value='".$data['emails'][$i]."' autocomplete='off' /></td>
+					<td><a href='#' onclick='javascript:$(this).parent().parent().remove(); return false;'>remove</a></td>
+				</tr>";
+
+		}
+	// add the new creator button
+	$html .= "
+					<tr id='addcreator$num'>
+						<td><a creator$num' href='#' onclick='javascript:add_creator$num();return false;'>add new creator</a></td>
+					</tr>
+				</table>
+			</td>
+		</tr>";
+
+	global $JS;
+
+	// add the javascript function for the creator widget
+	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
+	$JS .= <<<EOT
+function add_creator$num() {
+	var creators = $("#creators$num");
+	var addcreator = $("#addcreator$num");
+	creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
+	addcreator.remove().appendTo(creators);
+}
+EOT;
+
+	return $html;
+}
+
+// field definition for manageable item
+function generate_field_input_license($params)
+{
+	global $VAR;
+	$data = $params[0];
+	$num = $params[1];
+
+	// add license dropdown box
+	$license_options = "";
+	foreach ($VAR['licenses'] as $key => $value)	
+	{
+		if ($data['license'] == $key)
+			$selected = 'selected';
+		else
+			$selected = '';
+
+		$license_options .= "<option value='$key' $selected autocomplete='off'>$value</option>";
+	}
+
+	return "<tr><td class='table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
+}
+
+/* public function to save data from the resource manager to the local file system
+	Only available for POST requests
+	$_POST['resource_count'] contains the full number of resources being saved.
+	Each resource being saved has an explicit number associated with it in order to group its component metadata fields together.
+	These fields are indexed in the post array using a concatentation of the fieldname and the resource number.
+	Thus, the filename of the 3rd resource is $_POST['filename3'] and the description of the 2nd is $_POST['description2'].
+	Arrays are treated in exactly the same way as single values and can be saved without issue.
+	Files that are designated as "missing" will have their metadata retained even if they are not part of the main POST.
+	The ordering array contains the ids of all the submitted resources in the order they should be saved.
+ */
+function page_save_all()
+{
+	global $VAR;
+	// check request type
+	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+		header('HTTP/1.1 405 Method Not Allowed');
+		return;
+	}
+	
+	// ensure that the user is logged in
+	call('authenticate');
+
+	// keep a copy of the old data. This is used to retain resource metadata in the event that a file is missing..
+	$old_data = $VAR['data'];
+	$VAR['data'] = array();
+	
+	// loop once for each resource that is being saved
+	foreach ($_POST["ordering"] as $i)
+	{
+		// get the filename, this is used as the main index for the resource.  If no filename is posted, ignore this resource.
+		$filename = $_POST["filename$i"];
+		if ($filename == NULL) continue;
+
+		// if the resource is marked as missing, retrieve the data from the old array
+		if (isset($_POST['missing']) && in_array($i, $_POST['missing']))
+		{
+			 $VAR['data'][$filename] = $old_data[$filename];
+			continue;
+		}
+
+		// scan through each parameter in the post array
+		foreach ($_POST as $key => $value)
+			// if parameter is of the form fieldname.number - it is a field and should be added to data array in the form $VAR['data']['example.doc']['title'] = "Example document"
+			if (preg_match("/(.*)($i\$)/", $key, $matches))
+				$VAR['data'][$filename][$matches[1]] = $value;
+	}
+	
+	call('save_data');
+
+	// redirect to the resource manager
+	header('Location:'.$VAR['script_url'].'?page=resource_manager');
+}
+
+
+/*********************
+   RSS Export Module
+ *********************/
 
 // Public function for the RSS feed
 function page_rss() {
@@ -1002,10 +1021,10 @@ function page_rss() {
 	print 
 '<?xml version="1.0" encoding="utf-8" ?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
-	<title>'.$VAR['header_text'][0].$VAR['header_text'][1].'</title>
+	<title>'.$VAR['repository_name'].'</title>
 	<link>'.$VAR['script_url'].'</link>
 	<atom:link rel="self" href="'.$VAR['script_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
-	<description>'.$VAR['header_text'][2].'</description>
+	<description>'.$VAR['repository_tagline'].'</description>
 	<language>en</language>
 ';
 	// loop through all files which are public accessible
@@ -1016,9 +1035,7 @@ function page_rss() {
 ';
 		//  fields
 		foreach ($VAR['fields'] as $fieldname)
-		{
 			print call_optional("generate_field_rss_$fieldname", $data);
-		}
 		print '	</item>
 ';
         }
@@ -1026,27 +1043,28 @@ function page_rss() {
 	print '</channel></rss>';
 }
 
-/*
-	Field definitions for RSS output
-*/
+// field definition for rss
 function generate_field_rss_title($data)
 {
 	return '		<title>'.htmlentities($data['title']).'</title>
 ';
 }
 
+// field definition for rss
 function generate_field_rss_description($data)
 {
 	return '		<description>'.htmlentities($data['description']).'</description>
 ';
 }
 
+// field definition for rss
 function generate_field_rss_date($data)
 {
 	return '		<pubDate>'.call('get_file_date', $data['filename']).'</pubDate>
 ';
 }
 
+// field definition for rss
 function generate_field_rss_download($data)
 {
 	global $VAR;
@@ -1055,6 +1073,11 @@ function generate_field_rss_download($data)
 		<guid>'.$resource_url.'</guid>
 ';
 }
+
+
+/*********************
+   RDF Export Plugin
+ *********************/
 
 // public function for RDF
 function page_rdf() {
@@ -1085,9 +1108,7 @@ function page_rdf() {
 	print '</rdf:RDF>';
 }
 
-/*
-	Field definitions for RDF output
-*/
+// field definition for RDF
 function generate_field_rdf_title($params)
 {
 	$data = $params[0];
@@ -1100,6 +1121,7 @@ function generate_field_rdf_title($params)
 ";
 }
 
+// field definition for RDF
 function generate_field_rdf_description($params)
 {
 	$data = $params[0];
@@ -1112,6 +1134,7 @@ function generate_field_rdf_description($params)
 ";
 }
 
+// field definition for RDF
 function generate_field_rdf_creators($params)
 {
 	global $VAR;
@@ -1139,6 +1162,7 @@ function generate_field_rdf_creators($params)
 	return $xml;
 }
 
+// field definition for RDF
 function generate_field_rdf_date($params)
 {
 	$data = $params[0];
@@ -1151,6 +1175,7 @@ function generate_field_rdf_date($params)
 ";
 }
 
+// field definition for RDF
 function generate_field_rdf_download($params)
 {
 	global $VAR;
@@ -1168,6 +1193,7 @@ function generate_field_rdf_download($params)
 }
 
 // public function for unique people
+// allows them to be assigned a URI
 function page_creators() {
 	global $VAR, $BODY;
 
