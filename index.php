@@ -1002,7 +1002,7 @@ function generate_field_input_license($params)
  */
 function page_save_all()
 {
-	global $CONF;
+	global $CONF, $DATA;
 	// check request type
 	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
 		header('HTTP/1.1 405 Method Not Allowed');
@@ -1036,7 +1036,7 @@ function page_save_all()
 			if (preg_match("/(.*)($i\$)/", $key, $matches))
 				$DATA[$filename][$matches[1]] = $value;
 	}
-	
+
 	call('save_data');
 
 	// redirect to the resource manager
