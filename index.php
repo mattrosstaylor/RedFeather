@@ -44,7 +44,7 @@ $PAGE = '';
 	End of RedFeather configuration 
 */
 
-// field definitions
+// Field definitions
 $VAR['fields'] = array(
 	'title',
 	'description',
@@ -54,6 +54,12 @@ $VAR['fields'] = array(
 	'download',
 );
 
+// Toolbars
+$VAR['toolbars'] = array(
+	'footer' => array('credit', 'resource_manager'),
+	'browse' => array('search', 'rss', 'rdf'),
+	'resource' => array('metadata', 'comments'),
+);
 
 // List of available licenses for RedFeather
 $VAR['licenses'] = array(
@@ -116,8 +122,6 @@ function call_optional($function, $param=null)
 		return call_user_func($function, $param);
 	else return;
 }
-
-
 
 // If a plugin directory exists, open it and include any php files it contains.
 // Some variables and functions could be overwritten at this point, depending on the plugins installed.
@@ -255,6 +259,20 @@ function page_save_data()
 	End of functions to interact with the local file system.
 */
 
+
+// generates a named toolbar
+function generate_toolbar($toolbar)
+{
+	global $VAR;
+
+	$html ="<ul class='toolbar_$toolbar'>";
+
+	foreach($VAR['toolbars'][$toolbar] as $tool)
+		$html .= "<li>".call("generate_toolbar_item_".$toolbar."_".$tool)."</li>";
+
+	return $html .= "</ul>";
+}
+
 // function to get a list of all the complete resources (i.e. with matching file/metadata)
 function get_resource_list()
 {
@@ -345,10 +363,21 @@ function render_bottom()
 	$PAGE .= '
 			</div>
 			<div id="footer">
-				<div class="center">Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a> | <a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a></div>
-			</div>
+				<div class="center">'.call('generate_toolbar','footer').'</div>
 		</html>';
 }
+
+function generate_toolbar_item_footer_credit()
+{
+	return 'Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a>'; 
+}
+
+function generate_toolbar_item_footer_resource_manager()
+{
+	global $VAR;
+	return '<a href="'.$VAR['script_url'].'?page=manage_resources">Manage Resources</a>';
+}
+
 
 // returns the default stylesheet for RedFeather
 function generate_stylesheet()
@@ -424,6 +453,18 @@ a:hover, a:active {
 	background: $bannercolor;
 	border-top: 1px solid $linkcolor;
 	border-bottom: 1px solid $linkcolor;
+}
+.toolbar_footer > li {
+	display: inline;
+	padding: 0 5px;
+	border-right: 1px solid $text1;
+}
+.toolbar_footer > li:first-child {
+	padding-left: 0;
+}
+.toolbar_footer > li:last-child {
+	padding-right:0;
+	border-right: 0;
 }
 #content {
 	padding: 6px 0 6px 0;
@@ -503,11 +544,146 @@ tr>:first-child {
 .resource .field_name {
 	color: $text2;
 }
-.browse_tools {
-	vertical-align: center;
-	margin-bottom: 6px;
+.toolbar_browse {
+	margin-bottom: 10px;
+}
+.toolbar_browse > li {
+	padding-right: 10px;
+	display: inline;
+}
+.toolbar_browse > li > a > img {
+	vertical-align: text-bottom;
 }
 EOT;
+}
+
+/*
+	Basic Field Definitions
+*/
+function generate_field_output_creators($data)
+{
+	$html = '';
+	// check that the creator field exists and not an empty placeholder
+	if (isset($data['creators']) && trim($data['creators'][0]) != '')
+	{
+		// table header should be creator/creators depending on size of array
+		$html .= '<tr><td>Creator' .((sizeof($data['creators'])>1) ? 's': '').':</td><td>';
+		// loop through each creator name and create a mailto link for them if required
+		for ($i = 0; $i < sizeof($data['creators']); $i++)
+			if (trim($data['emails'][$i]) == '')
+				$html .= $data['creators'][$i].'<br/>';
+			else
+				$html .= '<a href="mailto:'.$data['emails'][$i].'">'.$data['creators'][$i].'</a><br/>';
+		$html .= '</td></tr>';
+	}
+
+	return $html;
+}
+
+function generate_field_output_date($data)
+{
+	return '<tr><td>Updated:</td><td>'.call('get_file_date', $data['filename']).'</td></tr>';
+}
+
+function generate_field_output_license($data)
+{
+	global $VAR;
+	return '<tr><td>License:</td><td>'.$VAR['licenses'][$data['license']].'</td></tr>';
+}
+
+function generate_field_output_download($data)
+{
+	return '<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', $data['filename']).'">'.$data['filename'].'</a></td></tr>';
+}
+
+function generate_field_input_title($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	return "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
+}
+
+function generate_field_input_description($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	return "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>";
+}
+
+function generate_field_input_creators($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	$html = "
+		<tr>
+			<td>Creators</td>
+			<td>
+				<table id='creators$num' class='creators'>
+					<tr>
+						<th>Name</th>
+						<th>Email</th>
+					</tr>";
+
+	// check if there are creators currently set for this resource
+	if (isset($data['creators']))
+		// loop through the creators and create the creator/email table rows
+		for ($i = 0; $i < sizeof($data['creators']); $i++)
+		{
+			$html .= "
+				<tr>
+					<td><input name='creators".$num."[]' value='".$data['creators'][$i]."' autocomplete='off' /></td>
+					<td><input name='emails".$num."[]' value='".$data['emails'][$i]."' autocomplete='off' /></td>
+					<td><a href='#' onclick='javascript:$(this).parent().parent().remove(); return false;'>remove</a></td>
+				</tr>";
+
+		}
+	// add the new creator button
+	$html .= "
+					<tr id='addcreator$num'>
+						<td><a creator$num' href='#' onclick='javascript:add_creator$num();return false;'>add new creator</a></td>
+					</tr>
+				</table>
+			</td>
+		</tr>";
+
+	// add the javascript function for the creator widget
+	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
+	$html .= <<<EOT
+<script type='text/javascript'>
+	function add_creator$num() {
+		var creators = $("#creators$num");
+		var addcreator = $("#addcreator$num");
+		creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
+		addcreator.remove().appendTo(creators);
+	}
+</script>
+EOT;
+
+	return $html;
+}
+
+function generate_field_input_license($params)
+{
+	global $VAR;
+	$data = $params[0];
+	$num = $params[1];
+
+	// add license dropdown box
+	$license_options = "";
+	foreach ($VAR['licenses'] as $key => $value)	
+	{
+		if ($data['license'] == $key)
+			$selected = 'selected';
+		else
+			$selected = '';
+
+		$license_options .= "<option value='$key' $selected autocomplete='off'>$value</option>";
+	}
+
+	return "<tr><td class='table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
 }
 
 /*
@@ -522,24 +698,8 @@ function page_browse()
 
 	call('render_top');
 
-	// add the search box and associated javascript; and the links to the RSS and RDF pages
-	$PAGE .=
-		'<div id="content"><div class="browse_tools">
-			Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
-			<script type="text/javascript">
-				function filter(){
-					var filter = $("#filter").val();
-					if(filter == ""){
-						$(".resource").show();	
-						return;
-					}
-					$(".resource").hide();
-					$(".resource:contains("+$("#filter").val()+")").show();
-				}
-			</script>
-			'.call('render_browse_toolbar').'
-		</div>';
-
+	$PAGE .= '<div id="content">'.call('generate_toolbar', 'browse');
+	
 	// div for resource list
 	$PAGE .= '<div class="browse_list">';
 
@@ -562,12 +722,38 @@ function page_browse()
 }
 
 
-// Get the toolbar for the browse view toolbar
-function render_browse_toolbar()
+function generate_toolbar_item_browse_search()
 {
 	global $VAR;
-	return '<a href="'.$VAR['script_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>
-        	<a href="'.$VAR['script_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
+
+	return 
+		'Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />
+		<script type="text/javascript">
+			function filter(){
+				var filter = $("#filter").val();
+ 				if(filter == ""){
+					$(".resource").show();  
+					return;
+				}
+				$(".resource").hide();
+				$(".resource:contains("+$("#filter").val()+")").show();
+			}
+		</script>';
+
+
+}
+
+function generate_toolbar_item_browse_rss()
+{
+	global $VAR;
+	return '<a href="'.$VAR['script_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>';
+}
+
+function generate_toolbar_item_browse_rdf()
+{
+
+	global $VAR;
+	return '<a href="'.$VAR['script_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
 }
 
 // View the resource preview, metadata and social networking plugin
@@ -587,22 +773,39 @@ function page_resource()
 
 	// get the resource metadata and compute urls
 	$data = $VAR['data'][$_REQUEST['file']];
-	$this_url = $VAR["script_url"].'?file='.$data['filename'];
-	$file_url = call('get_file_link', $data['filename']); 
 
 	$PAGE .=
 		'<div id="content">
-			<div class="metadata">
-				<h1>'.$data['title'].'</h1>
-				<p>'.$data['description'].'</p>
-				'.call('generate_metadata_table', $data).'
-				'.call('generate_comment_widget', $this_url).'
-			</div>
+			<div class="metadata">';
+//				<h1>'.$data['title'].'</h1>
+//				<p>'.$data['description'].'</p>
+//				'.call('generate_metadata_table', $data).
+//				'.call('generate_comment_widget', $this_url).'
+//	$PAGE .= call('generate_toolbar', 'resource');
+
+	$PAGE .='	</div>
 			<div id="preview">'.call('generate_preview', array($data['filename'], $VAR['element_size']['preview_width'], $VAR['element_size']['preview_height'])).'</div>
 			<div class="clearer"></div>
 		</div>';
 
 	call('render_bottom');
+}
+
+// toolbar
+function generate_toolbar_item_resource_metadata()
+{
+	global $VAR;
+	$data = $VAR['data'][$_REQUEST['file']];
+	
+	return '<h1>'.$data['title'].'</h1>
+		<p>'.$data['description'].'</p>
+		'.call('generate_metadata_table', $data);
+}
+
+function generate_toolbar_item_resource_widget()
+{
+	$this_url = $VAR["script_url"].'?file='.$data['filename'];
+	return call('generate_comment_widget', $this_url);
 }
 
 // return the Facebook comment widget
@@ -799,140 +1002,7 @@ function generate_manageable_item($params)
 	}
 	$item_html .= "</table>";
 
-
 	return $item_html;
-}
-
-/*
-	Metadata table field definitions
-*/
-function generate_field_output_creators($data)
-{
-	$html = '';
-	// check that the creator field exists and not an empty placeholder
-	if (isset($data['creators']) && trim($data['creators'][0]) != '')
-	{
-		// table header should be creator/creators depending on size of array
-		$html .= '<tr><td>Creator' .((sizeof($data['creators'])>1) ? 's': '').':</td><td>';
-		// loop through each creator name and create a mailto link for them if required
-		for ($i = 0; $i < sizeof($data['creators']); $i++)
-			if (trim($data['emails'][$i]) == '')
-				$html .= $data['creators'][$i].'<br/>';
-			else
-				$html .= '<a href="mailto:'.$data['emails'][$i].'">'.$data['creators'][$i].'</a><br/>';
-		$html .= '</td></tr>';
-	}
-
-	return $html;
-}
-
-function generate_field_output_date($data)
-{
-	return '<tr><td>Updated:</td><td>'.call('get_file_date', $data['filename']).'</td></tr>';
-}
-
-function generate_field_output_license($data)
-{
-	global $VAR;
-	return '<tr><td>License:</td><td>'.$VAR['licenses'][$data['license']].'</td></tr>';
-}
-
-function generate_field_output_download($data)
-{
-	return '<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', $data['filename']).'">'.$data['filename'].'</a></td></tr>';
-}
-
-/*
-	Resource manager field definitions
-*/
-function generate_field_input_title($params)
-{
-	$data = $params[0];
-	$num = $params[1];
-
-	return "<tr><td>Title</td><td><input name='title$num' value='".$data['title']."' autocomplete='off' /></td></tr>";
-}
-
-function generate_field_input_description($params)
-{
-	$data = $params[0];
-	$num = $params[1];
-
-	return "<tr><td>Description</td><td><textarea name='description$num' autocomplete='off' rows='8'>".$data['description']."</textarea></td></tr>";
-}
-
-function generate_field_input_creators($params)
-{
-	$data = $params[0];
-	$num = $params[1];
-
-	$html = "
-		<tr>
-			<td>Creators</td>
-			<td>
-				<table id='creators$num' class='creators'>
-					<tr>
-						<th>Name</th>
-						<th>Email</th>
-					</tr>";
-
-	// check if there are creators currently set for this resource
-	if (isset($data['creators']))
-		// loop through the creators and create the creator/email table rows
-		for ($i = 0; $i < sizeof($data['creators']); $i++)
-		{
-			$html .= "
-				<tr>
-					<td><input name='creators".$num."[]' value='".$data['creators'][$i]."' autocomplete='off' /></td>
-					<td><input name='emails".$num."[]' value='".$data['emails'][$i]."' autocomplete='off' /></td>
-					<td><a href='#' onclick='javascript:$(this).parent().parent().remove(); return false;'>remove</a></td>
-				</tr>";
-
-		}
-	// add the new creator button
-	$html .= "
-					<tr id='addcreator$num'>
-						<td><a creator$num' href='#' onclick='javascript:add_creator$num();return false;'>add new creator</a></td>
-					</tr>
-				</table>
-			</td>
-		</tr>";
-
-	// add the javascript function for the creator widget
-	// this is ridiculously inefficient since it is unneccessarily repeated once per resource but I won't fix it right now
-	$html .= <<<EOT
-<script type='text/javascript'>
-	function add_creator$num() {
-		var creators = $("#creators$num");
-		var addcreator = $("#addcreator$num");
-		creators.append('<tr><td><input name="creators{$num}[]" autocomplete="off" /></td><td><input name="emails{$num}[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
-		addcreator.remove().appendTo(creators);
-	}
-</script>
-EOT;
-
-	return $html;
-}
-
-function generate_field_input_license($params)
-{
-	global $VAR;
-	$data = $params[0];
-	$num = $params[1];
-
-	// add license dropdown box
-	$license_options = "";
-	foreach ($VAR['licenses'] as $key => $value)	
-	{
-		if ($data['license'] == $key)
-			$selected = 'selected';
-		else
-			$selected = '';
-
-		$license_options .= "<option value='$key' $selected autocomplete='off'>$value</option>";
-	}
-
-	return "<tr><td class='table_left'>Licence</td><td><select name='license$num' autocomplete='off'>$license_options</select></td></tr>";
 }
 
 // Public function for the RSS feed
@@ -998,7 +1068,6 @@ function generate_field_rss_download($data)
 ';
 }
 
-
 // public function for RDF
 function page_rdf() {
         global $VAR;
@@ -1022,16 +1091,11 @@ function page_rdf() {
 
 		//  fields
 		foreach ($VAR['fields'] as $fieldname)
-		{
 			print call_optional("generate_field_rdf_$fieldname", array($data, $resource_uri));
-		}
-
 	}
 
 	print '</rdf:RDF>';
 }
-
-
 
 /*
 	Field definitions for RDF output
@@ -1046,7 +1110,6 @@ function generate_field_rdf_title($params)
 		<dc:title>".$data['title']."</dc:title>
 	</rdf:Description>
 ";
-
 }
 
 function generate_field_rdf_description($params)
