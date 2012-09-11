@@ -352,12 +352,12 @@ function render_template()
 		'<html><head>
 			<title>'.$TITLE.'</title>
 			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-			<script src="index.php?page=javascript" type="text/javascript"></script>
-			<link rel="stylesheet" type="text/css" href="index.php?page=css"/>
+			<script src="'.$CONF['script_filename'].'?page=javascript" type="text/javascript"></script>
+			<link rel="stylesheet" type="text/css" href="'.$CONF['script_filename'].'?page=css"/>
 		</head>
 		<body>
 			<div id="header"><div class="center">
-				<h1><a href="'.$CONF['script_url'].'">
+				<h1><a href="'.$CONF['script_filename'].'">
 					'.$CONF['repository_name'].'
 				</a></h1>';
 
@@ -387,7 +387,7 @@ function generate_toolbar_item_footer_credit()
 function generate_toolbar_item_footer_resource_manager()
 {
 	global $CONF;
-	return '<a href="'.$CONF['script_url'].'?page=resource_manager">Resource Manager</a>';
+	return '<a href="'.$CONF['script_filename'].'?page=resource_manager">Resource Manager</a>';
 }
 
 // output a 404 page
@@ -555,11 +555,11 @@ function page_browse()
 	{
 		// retrieve the data and render the resource using the "generate_metadata_table" function
 		$data = $DATA[$filename];
-		$url = $CONF['script_url'].'?file='.rawurlencode($filename);
+		$url = $CONF['script_filename'].'?file='.rawurlencode($filename);
 		$BODY .= 
 			'<div class="resource">
 				<h1><a href="'.$url.'">'._E_($data['title']).'</a></h1>
-				<div>'._E_(nl2br($data['description'])).'</div>
+				<div>'.nl2br(_E_($data['description'])).'</div>
 				'.call('generate_metadata_table', $data).'
 			</div>';
 	}
@@ -579,7 +579,7 @@ function generate_toolbar_item_browse_search()
 function generate_toolbar_item_browse_rss()
 {
 	global $CONF;
-	return '<a href="'.$CONF['script_url'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>';
+	return '<a href="'.$CONF['script_filename'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>';
 }
 
 // toolbar item for browse page
@@ -587,7 +587,7 @@ function generate_toolbar_item_browse_rdf()
 {
 
 	global $CONF;
-	return '<a href="'.$CONF['script_url'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
+	return '<a href="'.$CONF['script_filename'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
 }
 
 // View the resource preview, metadata and social networking plugin
@@ -1113,7 +1113,7 @@ function generate_field_rss_date($data)
 function generate_field_rss_download($data)
 {
 	global $CONF;
-	$resource_url = _E_($CONF['script_url'].'?file='.$data['filename']);
+	$resource_url = _E_($CONF['script_url'].'?id='.$data['filename']);
 	return '		<link>'.$resource_url.'</link>
 		<guid>'.$resource_url.'</guid>
 ';
@@ -1143,7 +1143,7 @@ function page_rdf() {
         foreach($resource_list as $filename)
 	{
 		$data = $DATA[$filename];
-		$resource_uri = _E_($CONF['script_url'].'?file='.$filename);
+		$resource_uri = _E_($CONF['script_url'].'?id='.$filename);
 
 		//  fields
 		foreach ($CONF['fields'] as $fieldname)
