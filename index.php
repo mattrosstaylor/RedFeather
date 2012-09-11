@@ -76,7 +76,7 @@ $CONF['element_size'] = array(
 	'preview_height'=>550, // height of the resource preview in px
 	'metadata_width'=>300, // width of the resource metadata column in px
 	'metadata_gap'=>15, // size of the gap between the resource preview and metadata column in px
-	'manager_width'=>600 // width of the resource manager workflow
+	'manager_width'=>700 // width of the resource manager workflow
 );
 
 // Sets the default page for RedFeather
@@ -514,7 +514,7 @@ $CSS .= <<<EOT
 	margin-left: 6px;
 	font-size: 12px;
 }
-tr>:first-child {
+.metadata_table tr>:first-child {
 	color: {$CONF['theme']['text2']};
 	padding-right: 12px;
 }
@@ -559,7 +559,7 @@ function page_browse()
 		$BODY .= 
 			'<div class="resource">
 				<h1><a href="'.$url.'">'._E_($data['title']).'</a></h1>
-				<div>'.nl2br(_E_($data['description'])).'</div>
+				<p>'.nl2br(_E_($data['description'])).'</p>
 				'.call('generate_metadata_table', $data).'
 			</div>';
 	}
@@ -761,45 +761,56 @@ function generate_field_output_download($data)
  ***************************/
 
 $CSS .= <<<EOT
-.new_resource {
-	border-left: 1px dashed {$CONF['theme']['linkcolor']};
-	padding-left: 6px;
-	margin-bottom: 6px; 
+#resource_manager {
+	width: {$CONF['element_size']['manager_width']}px;
 }
 .manageable {
 	margin-top: 15px;
 }
 .manageable td {
-	padding-bottom:12px;
+	padding-bottom:6px;
 	vertical-align: middle;
 }
-tr>:first-child {
+.manageable tr>:first-child {
 	color: {$CONF['theme']['text2']};
-	padding-right: 12px;
+	padding-right: 6px;
 }
 .manageable tr>:nth-child(2) {
-	width: {$CONF['element_size']['manager_width']}px;
+	width: 100%;
 }
 .manageable input, .manageable textarea, .manageable select {
 	font: inherit;
 	width: 100%;
 }
+.creators {
+	width: 100%;
+}
 .creators th {
 	color: {$CONF['theme']['text2']};
 }
-.creators td {
-	width: 45%;
-	padding-bottom: 6px;
+.creators tr >:first-child, .creators tr >:nth-child(2) {
+	width: 45% !important;
+	padding-right: 6px !important;
 }
 .creators tr >:nth-child(3) {
-	width: 10%;
+	width: 10% !important;
+	padding-right: 0 !important;
 	text-align: right;
+}
+.new_resource {
+	border-left: 1px dashed {$CONF['theme']['linkcolor']};
+	padding-left: 6px;
+	margin-bottom: 6px; 
+}
+.updown {
+	text-size: 8px;
+	float: right;
 }
 EOT;
 
 $JS .= <<<EOT
 $(document).ready(function() {
-	$('<div style="text-size:8px;"><a href="#" class="up">up</a>/<a href="#" class="down">down</a></div>').insertAfter('.manageable > h1');
+	$('<div class="updown"><a href="#" class="up">up</a>/<a href="#" class="down">down</a></div>').insertBefore('.manageable > h1');
 	$('.up').click(function() {
 		var item = $(this).parent().parent();
 		var other = item.prev('.manageable');
@@ -845,7 +856,7 @@ function page_resource_manager()
 	$resource_html = '';
 
 	$TITLE = 'Resource Manager - '.$TITLE;
-	$BODY .= '<div id="content"><h1>Resource Manager</h1><form action="'.$CONF['script_filename'].'?page=save_all" method="POST">';
+	$BODY .= '<div id="content"><form id="resource_manager" action="'.$CONF['script_filename'].'?page=save_all" method="POST"><h1>Resource Manager</h1>';
 	
 	// iterate through all the files currently present in the filesystem	
 	foreach (call('get_file_list') as $filename)
@@ -949,6 +960,7 @@ function generate_field_input_creators($params)
 					<tr>
 						<th>Name</th>
 						<th>Email</th>
+						<th/>
 					</tr>';
 
 	// check if there are creators currently set for this resource
@@ -1061,7 +1073,7 @@ function page_save_all()
 function page_rss() {
 	global $CONF, $DATA;
         
-	header('Content-type: application/rss+xml');
+//	header('Content-type: application/rss+xml');
 
 	print 
 '<?xml version="1.0" encoding="utf-8" ?>
@@ -1133,7 +1145,7 @@ function page_rdf() {
 	else
 		$resource_list = call('get_resource_list');
 
-	header("Content-type: application/rdf+xml");
+//	header("Content-type: application/rdf+xml");
 	print 
 '<?xml version="1.0" encoding="UTF-8"?>
 <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:bibo="http://purl.org/ontology/bibo/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dct="http://purl.org/dc/terms/">
