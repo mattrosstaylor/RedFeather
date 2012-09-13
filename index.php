@@ -27,10 +27,10 @@ $CONF = array();
 
 	// Default values for a new resource
 	$CONF['default_metadata'] = array(
-		'title'=>'',
-		'description'=>'', 
-		'creators'=>array(''),
-		'emails'=>array(''),
+		//'title'=>'',
+		//'description'=>'', 
+		'creators'=>array('Matt R Taylor'),
+		'emails'=>array('mrt@ecs.soton.ac.uk'),
 		'license'=>''
 	);
 
@@ -76,11 +76,18 @@ $CONF['element_size'] = array(
 	'preview_height'=>550, // height of the resource preview in px
 	'metadata_width'=>300, // width of the resource metadata column in px
 	'metadata_gap'=>15, // size of the gap between the resource preview and metadata column in px
-	'manager_width'=>700 // width of the resource manager workflow
+	'manager_width'=>500 // width of the resource manager workflow
 );
 
 // Sets the default page for RedFeather
 $CONF['default_page'] = 'page_browse';
+
+// The file used for storing the resource metadata
+$CONF['metadata_filename'] = 'resourcedata';
+// The name of the plugins folder
+$CONF['plugin_dir'] = ".";
+
+
 
 // The filename for this script
 $CONF['script_filename'] = array_pop(explode('/', $_SERVER['SCRIPT_NAME']));
@@ -88,10 +95,6 @@ $CONF['script_filename'] = array_pop(explode('/', $_SERVER['SCRIPT_NAME']));
 $CONF['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME'], 0, strrpos($_SERVER['SCRIPT_NAME'], "/")+1);
 // The full url of the RedFeather script
 $CONF['script_url'] = $CONF['base_url'].$CONF['script_filename'];
-// The file used for storing the resource metadata
-$CONF['metadata_filename'] = 'resourcedata';
-// The name of the plugins folder
-$CONF['plugin_dir'] = "plugins";
 
 // global variable to allow function overriding
 $FUNCTION_OVERRIDE = array(
@@ -197,6 +200,95 @@ function get_resource_list()
 	foreach ($DATA as $filename => $data)
 		if (in_array($filename, $files)) array_push($list, $filename);
 	return $list;
+}
+
+
+/***************************************************
+   Helper functions - these cannot be overwritten
+ ***************************************************/
+
+// helper function to html entity encode a string
+function _E_($s)
+{
+	return htmlentities($s);
+}
+
+// helper function to get a field
+function _F_($data, $field)
+{
+	if (isset($data[$field]))
+		return $data[$field];
+	else
+		return '';
+}
+
+// helper function to get a field html entity encoded
+function _EF_($data, $field)
+{
+	return _E_(_F_($data, $field));
+}
+
+
+/**************
+   Base pages
+ **************/
+
+// render using template
+function render_template()
+{
+	global $CONF, $BODY, $TITLE, $CSS, $JS;
+
+	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
+	print 
+		'<html><head>
+			<title>'.$TITLE.'</title>
+			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+			<script src="'.$CONF['script_filename'].'?page=javascript" type="text/javascript"></script>
+			<link rel="stylesheet" type="text/css" href="'.$CONF['script_filename'].'?page=css"/>
+		</head>
+		<body>
+			<div id="header"><div class="center">
+				<h1><a href="'.$CONF['script_filename'].'">
+					'.$CONF['repository_name'].'
+				</a></h1>';
+
+	// add the optional 'return link' as documented in the RedFeather configuration section
+	if (isset($CONF['return_link']))
+		print '<a style="float:right;" href="'.$CONF['return_link']['href'].'">'.$CONF['return_link']['text'].'</a>';
+
+	print '
+				<h2>'.$CONF['repository_tagline'].'</h2>
+			</div></div>
+			<div class="center">
+			'.$BODY.'
+			</div>
+			<div id="footer">
+				<div class="center">'.call('generate_toolbar','footer').'</div>
+		</html>';
+
+}
+
+// toolbar item for footer
+function generate_toolbar_item_footer_credit()
+{
+	return 'Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a>'; 
+}
+
+// toolbar item for footer
+function generate_toolbar_item_footer_resource_manager()
+{
+	global $CONF;
+	return '<a href="'.$CONF['script_filename'].'?page=resource_manager">Resource Manager</a>';
+}
+
+// output a 404 page
+function fourohfour()
+{
+	global $BODY, $TITLE;
+	$TITLE = '404 - '.$TITLE;
+	$BODY .= '<div id="content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
+	header('Status: 404 Not Found');	
+	call('render_template');
 }
 
 // Public function for CSS
@@ -342,70 +434,6 @@ function page_javascript()
 	print $JS;
 }
  
-// render using template
-function render_template()
-{
-	global $CONF, $BODY, $TITLE, $CSS, $JS;
-
-	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
-	print 
-		'<html><head>
-			<title>'.$TITLE.'</title>
-			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-			<script src="'.$CONF['script_filename'].'?page=javascript" type="text/javascript"></script>
-			<link rel="stylesheet" type="text/css" href="'.$CONF['script_filename'].'?page=css"/>
-		</head>
-		<body>
-			<div id="header"><div class="center">
-				<h1><a href="'.$CONF['script_filename'].'">
-					'.$CONF['repository_name'].'
-				</a></h1>';
-
-	// add the optional 'return link' as documented in the RedFeather configuration section
-	if (isset($CONF['return_link']))
-		print '<a style="float:right;" href="'.$CONF['return_link']['href'].'">'.$CONF['return_link']['text'].'</a>';
-
-	print '
-				<h2>'.$CONF['repository_tagline'].'</h2>
-			</div></div>
-			<div class="center">
-			'.$BODY.'
-			</div>
-			<div id="footer">
-				<div class="center">'.call('generate_toolbar','footer').'</div>
-		</html>';
-
-}
-
-// toolbar item for footer
-function generate_toolbar_item_footer_credit()
-{
-	return 'Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a>'; 
-}
-
-// toolbar item for footer
-function generate_toolbar_item_footer_resource_manager()
-{
-	global $CONF;
-	return '<a href="'.$CONF['script_filename'].'?page=resource_manager">Resource Manager</a>';
-}
-
-// output a 404 page
-function fourohfour()
-{
-	global $BODY, $TITLE;
-	$TITLE = '404 - '.$TITLE;
-	$BODY .= '<div id="content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
-	header('Status: 404 Not Found');	
-	call('render_template');
-}
-
-
-// encode as html entities
-function _E_($s)
-{
-	return htmlentities($s);
-}
 
 /****************************************************
    Functions to interact with the local file system
@@ -419,7 +447,7 @@ function get_file_list()
 	foreach (scandir($dir) as $file)
 	{
 		// exclude directories, hidden files, the RedFeather file and the metadata file
-		if( is_dir($dir.$file) || preg_match("/^\./", $file) || $file == $CONF['script_filename'] || $file == $CONF['metadata_filename']) continue;
+		if( is_dir($dir.$file) || preg_match("/^\./", $file) || preg_match("/\.php/", $file)  || $file == $CONF['metadata_filename']) continue;
 		array_push($file_list, $file);
 	}
 	return $file_list;
@@ -533,7 +561,8 @@ function filter(){
 
 function preview_fallback() {
 	var d = document.getElementById('preview');
-	d.className = d.className + ' message_inserted';
+	if (d != null)
+		d.className = d.className + ' message_inserted';
 }
 
 window.setTimeout('preview_fallback()', 10000);
@@ -553,13 +582,13 @@ function page_browse()
 	// get the list of all files within the RedFeather scope
 	foreach(call('get_resource_list') as $filename)
 	{
-		// retrieve the data and render the resource using the "generate_metadata_table" function
 		$data = $DATA[$filename];
+		// render the resource using the "generate_metadata_table" function
 		$url = $CONF['script_filename'].'?file='.rawurlencode($filename);
 		$BODY .= 
 			'<div class="resource">
-				<h1><a href="'.$url.'">'._E_($data['title']).'</a></h1>
-				<p>'.nl2br(_E_($data['description'])).'</p>
+				<h1><a href="'.$url.'">'._EF_($data,'title').'</a></h1>
+				<p>'.nl2br(_EF_($data,'description')).'</p>
 				'.call('generate_metadata_table', $data).'
 			</div>';
 	}
@@ -606,16 +635,15 @@ function page_resource()
 		return;
 	}
 
-	// get the resource metadata and compute urls
 	$data = $DATA[$filename];
 
-	$TITLE = _E_($data['title']).' - '.$TITLE;
+	$TITLE = _EF_($data,'title').' - '.$TITLE;
 	$BODY .=
 		'<div id="content">
 			<div class="metadata">
 			'.call('generate_toolbar', 'resource').'
 			</div>
-			<div id="preview">'.call('generate_preview', array($data['filename'], $CONF['element_size']['preview_width'], $CONF['element_size']['preview_height'])).'</div>
+			<div id="preview">'.call('generate_preview', array(_F_($data,'filename'), $CONF['element_size']['preview_width'], $CONF['element_size']['preview_height'])).'</div>
 			<div class="clearer"></div>
 		</div>';
 
@@ -628,8 +656,8 @@ function generate_toolbar_item_resource_metadata()
 	global $CONF, $DATA;
 	$data = $DATA[rawurldecode($_REQUEST['file'])];
 	
-	return '<h1>'._E_($data['title']).'</h1>
-		<p>'._E_($data['description']).'</p>
+	return '<h1>'._EF_($data,'title').'</h1>
+		<p>'._EF_($data,'description').'</p>
 		'.call('generate_metadata_table', $data);
 }
 
@@ -639,7 +667,7 @@ function generate_toolbar_item_resource_comments()
 	global $CONF, $DATA;
 	$data = $DATA[rawurldecode($_REQUEST['file'])];
 
-	$this_url = $CONF['script_url'].'?file='._E_($data['filename']);
+	$this_url = $CONF['script_url'].'?file='._EF_($data,'filename');
 	return call('generate_comment_widget', $this_url);
 }
 
@@ -709,27 +737,29 @@ function generate_metadata_table($data)
 	
 	//  fields
 	foreach ($CONF['fields'] as $fieldname)
-		$table .= call_optional("generate_field_output_$fieldname", $data);
+		$table .= call_optional("generate_output_field_$fieldname", $data);
 
 	$table .= '</tbody></table>';
 	return $table;
 }
 
 // field definition for metadata table
-function generate_field_output_creators($data)
+function generate_output_field_creators($data)
 {
 	$html = '';
+	$creators = _F_($data,'creators');
+	$emails = _F_($data,'emails');
 	// check that the creator field exists and not an empty placeholder
-	if (isset($data['creators']) && trim($data['creators'][0]) != '')
+	if ($creators && trim($creators[0]) != '')
 	{
 		// table header should be creator/creators depending on size of array
-		$html .= '<tr><td>Creator' .((sizeof($data['creators'])>1) ? 's': '').':</td><td>';
+		$html .= '<tr><td>Creator' .((sizeof($creators)>1) ? 's': '').':</td><td>';
 		// loop through each creator name and create a mailto link for them if required
-		for ($i = 0; $i < sizeof($data['creators']); $i++)
-			if (trim($data['emails'][$i]) == '')
-				$html .= _E_($data['creators'][$i]).'<br/>';
+		for ($i = 0; $i < sizeof($creators); $i++)
+			if (trim($emails[$i]) == '')
+				$html .= _E_($creators[$i]).'<br/>';
 			else
-				$html .= '<a href="mailto:'._E_($data['emails'][$i]).'">'._E_($data['creators'][$i]).'</a><br/>';
+				$html .= '<a href="mailto:'._E_($emails[$i]).'">'._E_($creators[$i]).'</a><br/>';
 		$html .= '</td></tr>';
 	}
 
@@ -737,22 +767,22 @@ function generate_field_output_creators($data)
 }
 
 // field definition for metadata table
-function generate_field_output_date($data)
+function generate_output_field_date($data)
 {
-	return '<tr><td>Updated:</td><td>'.call('get_file_date', $data['filename']).'</td></tr>';
+	return '<tr><td>Updated:</td><td>'.call('get_file_date', _F_($data,'filename')).'</td></tr>';
 }
 
 // field definition for metadata table
-function generate_field_output_license($data)
+function generate_output_field_license($data)
 {
 	global $CONF;
-	return '<tr><td>License:</td><td>'.$CONF['licenses'][$data['license']].'</td></tr>';
+	return '<tr><td>License:</td><td>'.$CONF['licenses'][_F_($data, 'license')].'</td></tr>';
 }
 
 // field definition for metadata table
-function generate_field_output_download($data)
+function generate_output_field_download($data)
 {
-	return '<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', $data['filename']).'">'._E_($data['filename']).'</a></td></tr>';
+	return '<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', _F_($data,'filename')).'">'._EF_($data, 'filename').'</a></td></tr>';
 }
 
 
@@ -761,41 +791,32 @@ function generate_field_output_download($data)
  ***************************/
 
 $CSS .= <<<EOT
-#resource_manager {
-	width: {$CONF['element_size']['manager_width']}px;
-}
 .manageable {
-	margin-top: 15px;
+	margin-top: 30px;
 }
-.manageable td {
-	padding-bottom:6px;
-	vertical-align: middle;
+.end_field {
+	margin-bottom: 10px;
 }
-.manageable tr>:first-child {
+.manageable label {
+	display: inline-block;
 	color: {$CONF['theme']['text2']};
-	padding-right: 6px;
+	text-align:right;
+	width: 100px;
+	padding-right:10px;
 }
-.manageable tr>:nth-child(2) {
-	width: 100%;
+.manageable > input, .manageable > textarea, .manageable > select {
+	width: {$CONF['element_size']['manager_width']}px;
+	vertical-align: middle;
 }
 .manageable input, .manageable textarea, .manageable select {
 	font: inherit;
-	width: 100%;
+	border: solid 1px {$CONF['theme']['bannercolor']};
 }
-.creators {
-	width: 100%;
-}
-.creators th {
-	color: {$CONF['theme']['text2']};
-}
-.creators tr >:first-child, .creators tr >:nth-child(2) {
-	width: 45% !important;
-	padding-right: 6px !important;
-}
-.creators tr >:nth-child(3) {
-	width: 10% !important;
-	padding-right: 0 !important;
-	text-align: right;
+
+.multifield {
+	display: inline-block;
+	width: {$CONF['element_size']['manager_width']}px;
+	vertical-align: middle;
 }
 .new_resource {
 	border-left: 1px dashed {$CONF['theme']['linkcolor']};
@@ -804,7 +825,9 @@ $CSS .= <<<EOT
 }
 .updown {
 	text-size: 8px;
-	float: right;
+}
+.new_multifield {
+	display: none;
 }
 EOT;
 
@@ -826,12 +849,12 @@ $(document).ready(function() {
 		return false;
 	});
 });
-
-function add_creator(num) {
-	var creators = $("#creators"+num);
-	var addcreator = $("#addcreator"+num);
-	creators.append('<tr><td><input name="creators'+num+'[]" autocomplete="off" /></td><td><input name="emails'+num+'[]" autocomplete="off" /></td><td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td></tr>');
-	addcreator.remove().appendTo(creators);
+function multifield_add(field) {
+	var multifield = $("#"+field);
+	var add_link = $("#add"+field);
+	var new_item = $('#new_'+field).text();
+	multifield.append('<div>'+new_item+'<a href="#" onclick="javascript:$(this).parent().remove();return false;">remove</a></div>');
+	add_link.remove().appendTo(multifield);
 }
 EOT;
 
@@ -881,16 +904,17 @@ function page_resource_manager()
 
 	
 	// loop through all the metadata entries
-	foreach ($DATA as $key => $value) {
+	foreach ($DATA as $filename => $value) {
+		$data = $value;
 
 		// numbered field used for ordering
 		$order_marker = '<input type="hidden" name="ordering[]" value="'.$num.'"/>';
 
 		// something
-		if (in_array($key, $files_found_list))
-			$resource_html .= '<div class="manageable" id="resource'.$num.'">'.call('generate_manageable_item', array($DATA[$key], $num)).$order_marker.'</div>';
+		if (in_array($filename, $files_found_list))
+			$resource_html .= '<div class="manageable" id="resource'.$num.'">'.call('generate_manageable_item', array($data, $num)).$order_marker.'</div>';
 		else
-			$resource_html .= '<div class="manageable" id="resource'.$num.'"><h1>'._E_($key).'</h1><p>Resource not found <a href="#" onclick="javascript:$(\'#resource'.$num.'\').remove();return false;">delete metadata</a></p><input type="hidden" name="filename'.$num.'" value="'._E_($key).'"/><input type="hidden" name="missing[]" value="'.$num.'"/>'.$order_marker.'</div>';
+			$resource_html .= '<div class="manageable" id="resource'.$num.'"><h1>'._E_($filename).'</h1><p>Resource not found <a href="#" onclick="javascript:$(\'#resource'.$num.'\').remove();return false;">delete metadata</a></p><input type="hidden" name="filename'.$num.'" value="'._E_($filename).'"/><input type="hidden" name="missing[]" value="'.$num.'"/>'.$order_marker.'</div>';
 		$num++;
 	}
 
@@ -915,81 +939,86 @@ function generate_manageable_item($params)
 
 	// render the basic fields
 	$item_html = '
-		<h1><a href="'.(call('get_file_link', $data['filename'])).'" target="_blank">'._E_($data['filename']).'</a></h1>
-		<input type="hidden" name="filename'.$num.'" value="'._E_(rawurlencode($data['filename'])).'" />
-		<table>';
+		<h1><a href="'.call('get_file_link', _F_($data,'filename')).'" target="_blank">'._EF_($data,'filename').'</a></h1>
+		<input type="hidden" name="filename'.$num.'" value="'._E_(rawurlencode(_F_($data,'filename'))).'" />';
 		
 	// optional fields
 	foreach ($CONF['fields'] as $fieldname)
-		$item_html .= call_optional("generate_field_input_$fieldname", array($data, $num));
-
-	$item_html .= '</table>';
+		$item_html .= call_optional("generate_input_field_$fieldname", array($data, $num)).'<div class="clearer end_field"></div>';
 
 	return $item_html;
 }
 
-// field definition for manageable item
-function generate_field_input_title($params)
+// helper function for implementing multifields
+function generate_multifield_input_widget($params)
 {
 	$data = $params[0];
 	$num = $params[1];
+	$fieldname = $params[2];
+	
+	$html = '<div class="multifield multifield_'.$fieldname.'" id="'.$fieldname.$num.'">';
 
-	return '<tr><td>Title</td><td><input name="title'.$num.'" value="'._E_($data['title']).'" autocomplete="off" /></td></tr>';
-}
-
-// field definition for manageable item
-function generate_field_input_description($params)
-{
-	$data = $params[0];
-	$num = $params[1];
-
-	return '<tr><td>Description</td><td><textarea name="description'.$num.'" autocomplete="off" rows="8">'._E_($data['description']).'</textarea></td></tr>';
-}
-
-// field definition for manageable item
-function generate_field_input_creators($params)
-{
-	$data = $params[0];
-	$num = $params[1];
-
-	$html = '
-		<tr>
-			<td>Creators</td>
-			<td>
-				<table id="creators'.$num.'" class="creators">
-					<tr>
-						<th>Name</th>
-						<th>Email</th>
-						<th/>
-					</tr>';
-
-	// check if there are creators currently set for this resource
-	if (isset($data['creators']))
-		// loop through the creators and create the creator/email table rows
-		for ($i = 0; $i < sizeof($data['creators']); $i++)
+	$field = _F_($data,$fieldname);
+	// check if there are entires currently set for this resource
+	if ($field)
+		// loop through the elements and create the table rows
+		for ($i = 0; $i < sizeof($field); $i++)
 		{
-			$html .= '
-				<tr>
-					<td><input name="creators'.$num.'[]" value="'._E_($data['creators'][$i]).'" autocomplete="off" /></td>
-					<td><input name="emails'.$num.'[]" value="'._E_($data['emails'][$i]).'" autocomplete="off" /></td>
-					<td><a href="#" onclick="javascript:$(this).parent().parent().remove(); return false;">remove</a></td>
-				</tr>';
-
+		$html .= '<div>
+				'.call('generate_multifield_input_'.$fieldname, array($data, $num, $i)).'
+				<a href="#" onclick="javascript:$(this).parent().remove();return false;">remove</a>
+			</div>';
 		}
-	// add the new creator button
-	$html .= '
-					<tr id="addcreator'.$num.'">
-						<td><a id="creator'.$num.'" href="#" onclick="javascript:add_creator('.$num.');return false;">add new creator</a></td>
-					</tr>
-				</table>
-			</td>
-		</tr>';
-
+	// add the new item button
+	$html .= '<a id="add'.$fieldname.$num.'" href="#" onclick="javascript:multifield_add(\''.$fieldname.$num.'\');return false;">add</a>';
+	$html .= '</div>';
 	return $html;
 }
 
 // field definition for manageable item
-function generate_field_input_license($params)
+function generate_input_field_title($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	return '<label>Title</label><input name="title'.$num.'" value="'._EF_($data,'title').'" autocomplete="off" />';
+}
+
+// field definition for manageable item
+function generate_input_field_description($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	return '<label>Description</label><textarea name="description'.$num.'" autocomplete="off" rows="8">'._EF_($data,'description').'</textarea>';
+}
+
+// field definition for manageable item
+function generate_input_field_creators($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+
+	return '<label>Creators</label>'.call('generate_multifield_input_widget', array($data,$num,'creators')).'
+		<div class="new_multifield" id="new_creators'.$num.'">
+			'._E_('<input name="creators'.$num.'[]" autocomplete="off" /><input name="emails'.$num.'[]" autocomplete="off" />').'
+		</div>';
+}
+
+function generate_multifield_input_creators($params)
+{
+	$data = $params[0];
+	$num = $params[1];
+	$i = $params[2];
+
+	$creators = _F_($data, 'creators');
+	$emails = _F_($data, 'emails');
+
+	return '<input name="creators'.$num.'[]" value="'._E_($creators[$i]).'" autocomplete="off" /><input name="emails'.$num.'[]" value="'._E_($emails[$i]).'" autocomplete="off" />';
+}
+
+// field definition for manageable item
+function generate_input_field_license($params)
 {
 	global $CONF;
 	$data = $params[0];
@@ -999,7 +1028,7 @@ function generate_field_input_license($params)
 	$license_options = '';
 	foreach ($CONF['licenses'] as $key => $value)	
 	{
-		if ($data['license'] == $key)
+		if (_F_($data, 'license') == $key)
 			$selected = 'selected';
 		else
 			$selected = '';
@@ -1007,7 +1036,7 @@ function generate_field_input_license($params)
 		$license_options .= '<option value="'.$key.'" '.$selected.' autocomplete="off">'.$value.'</option>';
 	}
 
-	return '<tr><td class="table_left">Licence</td><td><select name="license'.$num.'" autocomplete="off">'.$license_options.'</select></td></tr>';
+	return '<label>License</label><select name="license'.$num.'" autocomplete="off">'.$license_options.'</select>';
 }
 
 /* public function to save data from the resource manager to the local file system
@@ -1092,7 +1121,7 @@ function page_rss() {
 ';
 		//  fields
 		foreach ($CONF['fields'] as $fieldname)
-			print call_optional("generate_field_rss_$fieldname", $data);
+			print call_optional("generate_rss_field_$fieldname", $data);
 		print '	</item>
 ';
         }
@@ -1101,31 +1130,31 @@ function page_rss() {
 }
 
 // field definition for rss
-function generate_field_rss_title($data)
+function generate_rss_field_title($data)
 {
-	return '		<title>'._E_($data['title']).'</title>
+	return '		<title>'._EF_($data,'title').'</title>
 ';
 }
 
 // field definition for rss
-function generate_field_rss_description($data)
+function generate_rss_field_description($data)
 {
-	return '		<description>'._E_($data['description']).'</description>
+	return '		<description>'._EF_($data,'description').'</description>
 ';
 }
 
 // field definition for rss
-function generate_field_rss_date($data)
+function generate_rss_field_date($data)
 {
-	return '		<pubDate>'.call('get_file_date', $data['filename']).'</pubDate>
+	return '		<pubDate>'.call('get_file_date', _F_($data,'filename')).'</pubDate>
 ';
 }
 
 // field definition for rss
-function generate_field_rss_download($data)
+function generate_rss_field_download($data)
 {
 	global $CONF;
-	$resource_url = _E_($CONF['script_url'].'?id='.$data['filename']);
+	$resource_url = _E_($CONF['script_url'].'?file='.rawurlencode(_F_($data, 'filename')));
 	return '		<link>'.$resource_url.'</link>
 		<guid>'.$resource_url.'</guid>
 ';
@@ -1155,52 +1184,53 @@ function page_rdf() {
         foreach($resource_list as $filename)
 	{
 		$data = $DATA[$filename];
-		$resource_uri = _E_($CONF['script_url'].'?id='.$filename);
+		$resource_uri = _E_($CONF['script_url'].'?file='.$filename);
 
 		//  fields
 		foreach ($CONF['fields'] as $fieldname)
-			print call_optional("generate_field_rdf_$fieldname", array($data, $resource_uri));
+			print call_optional("generate_rdf_field_$fieldname", array($data, $resource_uri));
 	}
 
 	print '</rdf:RDF>';
 }
 
 // field definition for RDF
-function generate_field_rdf_title($params)
+function generate_rdf_field_title($params)
 {
 	$data = $params[0];
 	$resource_uri = $params[1];
 
 	return 
 '	<rdf:Description rdf:about="'.$resource_uri.'">
-		<dc:title>"'.$data['title'].'"</dc:title>
+		<dc:title>"'._EF_($data,'title').'"</dc:title>
 	</rdf:Description>
 ';
 }
 
 // field definition for RDF
-function generate_field_rdf_description($params)
+function generate_rdf_field_description($params)
 {
 	$data = $params[0];
 	$resource_uri = $params[1];
 
 	return 
 '	<rdf:Description rdf:about="'.$resource_uri.'">
-		<dc:description>'.$data['description'].'</dc:description>
+		<dc:description>'._EF_($data,'description').'</dc:description>
 	</rdf:Description>
 ';
 }
 
 // field definition for RDF
-function generate_field_rdf_creators($params)
+function generate_rdf_field_creators($params)
 {
 	global $CONF;
 	$data = $params[0];
 	$resource_uri = $params[1];
 
 	$xml = '';
-	if (isset($data['creators']))
-			foreach($data['creators'] as $creator)
+	$creators = _F_($data,'creators');
+	if ($creators)
+			foreach($creators as $creator)
 			{
 				$creator_uri = $CONF['script_url'].'?page=creators#'._E_($creator);
 				$xml .=
@@ -1211,7 +1241,7 @@ function generate_field_rdf_creators($params)
 
 				$xml .=
 '	<rdf:Description rdf:about="'.$creator_uri.'">
-		<foaf:name>'.$creator.'</foaf:name>
+		<foaf:name>'._E_($creator).'</foaf:name>
 		<foaf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
 	</rdf:Description>
 ';
@@ -1220,26 +1250,26 @@ function generate_field_rdf_creators($params)
 }
 
 // field definition for RDF
-function generate_field_rdf_date($params)
+function generate_rdf_field_date($params)
 {
 	$data = $params[0];
 	$resource_uri = $params[1];
 
 	return 
 '	<rdf:Description rdf:about="'.$resource_uri.'">
-		<dct:date>'.call_optional('get_file_date',$data['filename']).'</dct:date>
+		<dct:date>'.call_optional('get_file_date',_F_($data,'filename')).'</dct:date>
 	</rdf:Description>
 ';
 }
 
 // field definition for RDF
-function generate_field_rdf_download($params)
+function generate_rdf_field_download($params)
 {
 	global $CONF;
 	$data = $params[0];
 	$resource_uri = $params[1];
 
-	$file_url = _E_($CONF['base_url'].$data['filename']);
+	$file_url = _E_($CONF['base_url']._F_($data,'filename'));
 
 	return 
 '	<rdf:Description rdf:about="'.$resource_uri.'">
@@ -1262,7 +1292,6 @@ function page_creators() {
 	}
 	$BODY .= '</ul></div>';
 	call('render_template');
-
 }
 
 // get a list of all the unique creators
@@ -1291,7 +1320,7 @@ if(is_dir($CONF['plugin_dir']))
 	if ($dh = opendir($CONF['plugin_dir']))
 	{ 
 		while (($file = readdir($dh)) !== false) 
-			if(is_file($CONF['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file))
+			if(is_file($CONF['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file) && $file != $CONF['script_filename'])
 				include($CONF['plugin_dir'].'/'.$file);
 		closedir($dh);
 	}
