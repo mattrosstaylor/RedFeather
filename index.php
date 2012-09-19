@@ -535,7 +535,6 @@ $CSS .= <<<EOT
 	width: {$CONF['element_size']['metadata_width']}px;
 	float: right;
 	margin-left: {$CONF['element_size']['metadata_gap']}px;
-	padding:0;
 }
 .metadata_table {
 	margin-bottom: 6px;
