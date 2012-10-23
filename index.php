@@ -29,8 +29,8 @@ $CONF = array();
 	$CONF['default_metadata'] = array(
 		//'title'=>'',
 		//'description'=>'', 
-		'creators'=>array('Matt R Taylor'),
-		'emails'=>array('mrt@ecs.soton.ac.uk'),
+		'creators'=>array(''),
+		'emails'=>array(''),
 		'license'=>''
 	);
 
@@ -57,6 +57,7 @@ $CONF['toolbars'] = array(
 	'footer' => array('credit', 'resource_manager'),
 	'browse' => array('search', 'rss', 'rdf'),
 	'resource' => array('metadata', 'comments'),
+	'resource_manager' => array()
 );
 
 // List of available licenses for RedFeather
@@ -145,7 +146,7 @@ function call_optional($function, $param=null)
 // function to provide simple authentication functionality
 function authenticate() {
 	global $CONF, $BODY, $FUNCTION_OVERRIDE;
-
+return;
 	// check the session for an authenticated user and return to the parent function if valid.
 	session_set_cookie_params(0, $CONF['script_url']);
 	session_start();
@@ -240,7 +241,8 @@ function render_template()
 
 	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
 	print 
-		'<html><head>
+		'<!DOCTYPE HTML>
+		<html><head>
 			<title>'.$TITLE.'</title>
 			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
 			<script src="'.$CONF['script_filename'].'?page=javascript" type="text/javascript"></script>
@@ -356,10 +358,12 @@ body {
 	color: {$CONF['theme']['text1']};
 	background: {$CONF['theme']['background']};
 	line-height: 1.15;
+	text-align: center;
 }
 .center {
 	width: {$page_width}px;
 	margin: auto;
+	text-align: left;
 }
 h1 { 
 	font-size: 20px; 
@@ -447,10 +451,20 @@ function get_file_list()
 	foreach (scandir($dir) as $file)
 	{
 		// exclude directories, hidden files, the RedFeather file and the metadata file
-		if( is_dir($dir.$file) || preg_match("/^\./", $file) || preg_match("/\.php/", $file)  || $file == $CONF['metadata_filename']) continue;
+		if( is_dir($dir.$file) || !call('check_file_allowed', $file)) continue;
 		array_push($file_list, $file);
 	}
 	return $file_list;
+}
+
+// checks whether a file is acceptable
+function check_file_allowed($filename)
+{
+	global $CONF;
+	if (preg_match("/^\./", $filename) || preg_match("/\.php/", $filename)  || $filename == $CONF['metadata_filename'])
+		return false;
+	else
+		return true;
 }
 
 
@@ -505,7 +519,7 @@ $CSS .= <<<EOT
 }
 .toolbar_browse > li {
 	padding-right: 10px;
-	display: inline;
+	display: inline-block;
 }
 .toolbar_browse > li > a > img {
 	vertical-align: text-bottom;
@@ -515,6 +529,7 @@ $CSS .= <<<EOT
 	max-height: {$CONF['element_size']['preview_height']}px;
 	overflow: hidden;
 	text-align: center;
+	float: left;
 }
 #preview iframe {
 	width: {$CONF['element_size']['preview_width']}px;
@@ -535,11 +550,15 @@ $CSS .= <<<EOT
 	width: {$CONF['element_size']['metadata_width']}px;
 	float: right;
 	margin-left: {$CONF['element_size']['metadata_gap']}px;
+	word-wrap: break-word;
 }
 .metadata_table {
 	margin-bottom: 6px;
 	margin-left: 6px;
 	font-size: 12px;
+}
+.metadata_table tr>:last-child {
+	word-break: break-all;
 }
 .metadata_table tr>:first-child {
 	color: {$CONF['theme']['text2']};
@@ -639,10 +658,10 @@ function page_resource()
 	$TITLE = _EF_($data,'title').' - '.$TITLE;
 	$BODY .=
 		'<div id="content">
+			<div id="preview">'.call('generate_preview', array(_F_($data,'filename'), $CONF['element_size']['preview_width'], $CONF['element_size']['preview_height'])).'</div>
 			<div class="metadata">
 			'.call('generate_toolbar', 'resource').'
 			</div>
-			<div id="preview">'.call('generate_preview', array(_F_($data,'filename'), $CONF['element_size']['preview_width'], $CONF['element_size']['preview_height'])).'</div>
 			<div class="clearer"></div>
 		</div>';
 
@@ -790,8 +809,21 @@ function generate_output_field_download($data)
  ***************************/
 
 $CSS .= <<<EOT
-.manageable {
-	margin-top: 30px;
+.resource_manager table td {
+	padding: 0 15px 0 0;
+}
+.number {
+	color: {$CONF['theme']['text2']};
+}
+.updown {
+	font-size: 20px;
+	font-weight: bold;
+}
+tbody tr:first-child > td > .up { 
+	visibility: hidden;
+}
+tbody tr:last-child > td > .down { 
+	visibility: hidden;
 }
 .end_field {
 	margin-bottom: 10px;
@@ -817,14 +849,6 @@ $CSS .= <<<EOT
 	width: {$CONF['element_size']['manager_width']}px;
 	vertical-align: middle;
 }
-.new_resource {
-	border-left: 1px dashed {$CONF['theme']['linkcolor']};
-	padding-left: 6px;
-	margin-bottom: 6px; 
-}
-.updown {
-	text-size: 8px;
-}
 .new_multifield {
 	display: none;
 }
@@ -832,19 +856,24 @@ EOT;
 
 $JS .= <<<EOT
 $(document).ready(function() {
-	$('<div class="updown"><a href="#" class="up">up</a>/<a href="#" class="down">down</a></div>').insertBefore('.manageable > h1');
 	$('.up').click(function() {
 		var item = $(this).parent().parent();
-		var other = item.prev('.manageable');
+		var other = item.prev('.sortable');
 		if (other.html() == null) return false;
 		item.detach().insertBefore(other);
+		var this_num = item.find('.number').html();
+		item.find('.number').html(other.find('.number').html());
+		other.find('.number').html(this_num);
 		return false;
 	});
 	$('.down').click(function() {
 		var item = $(this).parent().parent();
-		var other = item.next('.manageable');
+		var other = item.next('.sortable');
 		if (other.html() == null) return false;
 		item.detach().insertAfter(other);
+		var this_num = item.find('.number').html();
+		item.find('.number').html(other.find('.number').html());
+		other.find('.number').html(this_num);
 		return false;
 	});
 });
@@ -857,93 +886,148 @@ function multifield_add(field) {
 }
 EOT;
 
-/* Public function for the RedFeather resource manager
-	Provides an interface to annotate all the files accessible to RedFeather.
-	User must be authenticated to access this page.
-	New files are added to the top of the list.
-	Files which have metadata, but are missing from the filesystem are listed as such and provided with a link allowing them to be deleted if required. */
 function page_resource_manager()
 {
 	global $CONF, $DATA, $BODY, $TITLE;
 
 	call('authenticate');
 	
-	// counter for the number of new files detected
-	$new_file_count = 0;
-	// counter for the total number of files
-	$num = 0;
-	// list for files that were present in the filesystem	
-	$files_found_list = array();
 	// buffer for copying manageable resources
 	$resource_html = '';
 
 	$TITLE = 'Resource Manager - '.$TITLE;
-	$BODY .= '<div id="content"><form id="resource_manager" action="'.$CONF['script_filename'].'?page=save_all" method="POST"><h1>Resource Manager</h1>';
+	$BODY .= '<div id="content" class="resource_manager"><form action="'.$CONF['script_filename'].'?page=resource_manager_post" method="POST"><h1>Resource Manager</h1>';
+	$BODY .= call('generate_toolbar', 'resource_manager');
 	
+	$unsaved_html = '<table><tbody>';
+	$resource_html = '<table><tbody>';
+
+	$num = 1;
+
 	// iterate through all the files currently present in the filesystem	
 	foreach (call('get_file_list') as $filename)
 	{
-		// numbered field used for ordering
-		$order_marker = '<input type="hidden" name="ordering[]" value="'.$num.'"/>';
-
 		// if the metadata exists for the file, render the workflow item and add it to the list of found files
-		if (isset($DATA[$filename])) {
-			array_push($files_found_list, $filename);
+		if (isset($DATA[$filename]))
+		{
+			$data = $DATA[$filename];
+			$resource_html .= '<tr class="sortable">';
+			$resource_html .= '<td class="number">'.$num++.'.</td>';
+			$resource_html .= '<td>'._EF_($data, 'title').'</td>';
+			$resource_html .= '<td class="updown"><a href="#" class="up">&uarr;</a><a href="#" class="down">&darr;</a></td>';
+			$resource_html .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
+			$resource_html .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">edit</a></td>';
+		//	$resource_html .= '<td><a href="'.$CONF['script_filename'].'?file='.rawurlencode($filename).'">view</a></td>';
+			$resource_html .= '<td><a href="'.$CONF['script_filename'].'?page=delete&file='.rawurlencode($filename).'">delete</a></td>';
+			$resource_html .= '<input type="hidden" name="ordering[]" value="'._E_($filename).'"/>';
+			$resource_html .= '</tr>';
 		}
 		else
 		{
-			// if the file exists but the metadata doesn't, render a new workflow item with the default metadata
-			$data = $CONF['default_metadata'];
-			$data['filename'] = $filename;
-			$resource_html .= '<div class="manageable new_resource" id="resource'.$num.'">'.call('generate_manageable_item', array($data, $num)).$order_marker.'</div>';
-			$new_file_count++;
-			$num++;
+			$unsaved_html .= '<tr>';
+			$unsaved_html .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
+			$unsaved_html .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">annotate</a></td>';
+			$unsaved_html .= '<td><a href="'.$CONF['script_filename'].'?page=delete&file='.rawurlencode($filename).'">delete</a></td>';
+			$unsaved_html .= '</tr>';
 		}
 	}
 
-	
-	// loop through all the metadata entries
-	foreach ($DATA as $filename => $value) {
-		$data = $value;
-
-		// numbered field used for ordering
-		$order_marker = '<input type="hidden" name="ordering[]" value="'.$num.'"/>';
-
-		// something
-		if (in_array($filename, $files_found_list))
-			$resource_html .= '<div class="manageable" id="resource'.$num.'">'.call('generate_manageable_item', array($data, $num)).$order_marker.'</div>';
-		else
-			$resource_html .= '<div class="manageable" id="resource'.$num.'"><h1>'._E_($filename).'</h1><p>Resource not found <a href="#" onclick="javascript:$(\'#resource'.$num.'\').remove();return false;">delete metadata</a></p><input type="hidden" name="filename'.$num.'" value="'._E_($filename).'"/><input type="hidden" name="missing[]" value="'.$num.'"/>'.$order_marker.'</div>';
-		$num++;
-	}
-
-	if ($new_file_count) $BODY .= '<p>'.$new_file_count.' new files found.</p>';
+	$unsaved_html .= '</tbody></table>';
+	$resource_html .= '</tbody></table>';
 
 	$BODY .= $resource_html;
-
 	// add save button
+	$BODY .= '<input type="submit" value="Save order"/>';
+	$BODY .= '</form>';
+
+
+
+	$BODY .= '<h1>Unannotated files</h1>'.$unsaved_html;
+
+	$BODY .= '</div></div>';
+	call('render_template');
+
+}
+
+function page_edit()
+{
+	global $CONF, $DATA, $BODY, $TITLE;
+
+	call('authenticate');
+
+	$filename = '';	
+	$data = '';
+
+	// check that the file requested actually exists
+	if (isset($_REQUEST['file']))
+		$filename = rawurldecode($_REQUEST['file']);
+
+ 	if (isset($DATA[$filename]))
+		$data = $DATA[$filename];
+	else
+	{
+		// if this is a new file add it with the default metadata
+		if (in_array($filename, call('get_file_list')))
+		{
+			$data = $CONF['default_metadata'];
+			$data['filename'] = $filename;
+		}
+		else
+		{
+			call('fourohfour');
+			return;
+		}
+	}
+
+	$BODY .= '<div id="content"><form action="'.$CONF['script_filename'].'?page=save" method="POST">';
+	$BODY .= '<div class="manageable">'.call('generate_manageable_item', $data).'</div>';
 	$BODY .= '<input type="submit" value="Save"/>';
 	$BODY .= '</form></div>';
 
 	call('render_template');
 }
 
+// public function to save data from the resource manager to the local file system
+function page_save()
+{
+	global $CONF, $DATA;
+	// check request type
+	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+		header('HTTP/1.1 405 Method Not Allowed');
+		return;
+	}
+	
+	// ensure that the user is logged in
+	call('authenticate');
+
+	$filename = $_POST['filename'];
+
+	// replace the data if it already exists, otherwise prepend it to the array as the top item
+	if (isset($DATA[$filename]))
+		$DATA[$filename] = $_POST;
+	else
+		$DATA = array_merge(array($filename => $_POST), $DATA);
+
+
+	call('save_data');
+
+	// redirect to the resource manager
+	header('Location:'.$CONF['script_url'].'?page=resource_manager');
+}
+
 // returns the html for a single item on the resource workflow
-function generate_manageable_item($params)
+function generate_manageable_item($data)
 {
 	global $CONF;
 
-	$data = $params[0];
-	$num = $params[1];
-
 	// render the basic fields
 	$item_html = '
-		<h1><a href="'.call('get_file_link', _F_($data,'filename')).'" target="_blank">'._EF_($data,'filename').'</a></h1>
-		<input type="hidden" name="filename'.$num.'" value="'._E_(rawurlencode(_F_($data,'filename'))).'" />';
+		<h1><a href="'._E_(call('get_file_link', _F_($data,'filename'))).'" target="_blank">'._EF_($data,'filename').'</a></h1>
+		<input type="hidden" name="filename" value="'._E_(rawurlencode(_F_($data,'filename'))).'" />';
 		
 	// optional fields
 	foreach ($CONF['fields'] as $fieldname)
-		$item_html .= call_optional("generate_input_field_$fieldname", array($data, $num)).'<div class="clearer end_field"></div>';
+		$item_html .= call_optional("generate_input_field_$fieldname", $data).'<div class="clearer end_field"></div>';
 
 	return $item_html;
 }
@@ -952,10 +1036,9 @@ function generate_manageable_item($params)
 function generate_multifield_input_widget($params)
 {
 	$data = $params[0];
-	$num = $params[1];
-	$fieldname = $params[2];
+	$fieldname = $params[1];
 	
-	$html = '<div class="multifield multifield_'.$fieldname.'" id="'.$fieldname.$num.'">';
+	$html = '<div class="multifield multifield_'.$fieldname.'" id="'.$fieldname.'">';
 
 	$field = _F_($data,$fieldname);
 	// check if there are entires currently set for this resource
@@ -964,64 +1047,52 @@ function generate_multifield_input_widget($params)
 		for ($i = 0; $i < sizeof($field); $i++)
 		{
 		$html .= '<div>
-				'.call('generate_multifield_input_'.$fieldname, array($data, $num, $i)).'
+				'.call('generate_multifield_input_'.$fieldname, array($data, $i)).'
 				<a href="#" onclick="javascript:$(this).parent().remove();return false;">remove</a>
 			</div>';
 		}
 	// add the new item button
-	$html .= '<a id="add'.$fieldname.$num.'" href="#" onclick="javascript:multifield_add(\''.$fieldname.$num.'\');return false;">add</a>';
+	$html .= '<a id="add'.$fieldname.'" href="#" onclick="javascript:multifield_add(\''.$fieldname.'\');return false;">add</a>';
 	$html .= '</div>';
 	return $html;
 }
 
 // field definition for manageable item
-function generate_input_field_title($params)
+function generate_input_field_title($data)
 {
-	$data = $params[0];
-	$num = $params[1];
-
-	return '<label>Title</label><input name="title'.$num.'" value="'._EF_($data,'title').'" autocomplete="off" />';
+	return '<label>Title</label><input name="title" value="'._EF_($data,'title').'" autocomplete="off" />';
 }
 
 // field definition for manageable item
-function generate_input_field_description($params)
+function generate_input_field_description($data)
 {
-	$data = $params[0];
-	$num = $params[1];
-
-	return '<label>Description</label><textarea name="description'.$num.'" autocomplete="off" rows="8">'._EF_($data,'description').'</textarea>';
+	return '<label>Description</label><textarea name="description" autocomplete="off" rows="8">'._EF_($data,'description').'</textarea>';
 }
 
 // field definition for manageable item
-function generate_input_field_creators($params)
+function generate_input_field_creators($data)
 {
-	$data = $params[0];
-	$num = $params[1];
-
-	return '<label>Creators</label>'.call('generate_multifield_input_widget', array($data,$num,'creators')).'
-		<div class="new_multifield" id="new_creators'.$num.'">
-			'._E_('<input name="creators'.$num.'[]" autocomplete="off" /><input name="emails'.$num.'[]" autocomplete="off" />').'
+	return '<label>Creators</label>'.call('generate_multifield_input_widget', array($data,'creators')).'
+		<div class="new_multifield" id="new_creators">
+			'._E_('<input name="creators[]" autocomplete="off" /><input name="emails[]" autocomplete="off" />').'
 		</div>';
 }
 
 function generate_multifield_input_creators($params)
 {
 	$data = $params[0];
-	$num = $params[1];
-	$i = $params[2];
+	$i = $params[1];
 
 	$creators = _F_($data, 'creators');
 	$emails = _F_($data, 'emails');
 
-	return '<input name="creators'.$num.'[]" value="'._E_($creators[$i]).'" autocomplete="off" /><input name="emails'.$num.'[]" value="'._E_($emails[$i]).'" autocomplete="off" />';
+	return '<input name="creators[]" value="'._E_($creators[$i]).'" autocomplete="off" /><input name="emails[]" value="'._E_($emails[$i]).'" autocomplete="off" />';
 }
 
 // field definition for manageable item
-function generate_input_field_license($params)
+function generate_input_field_license($data)
 {
 	global $CONF;
-	$data = $params[0];
-	$num = $params[1];
 
 	// add license dropdown box
 	$license_options = '';
@@ -1035,63 +1106,8 @@ function generate_input_field_license($params)
 		$license_options .= '<option value="'.$key.'" '.$selected.' autocomplete="off">'.$value.'</option>';
 	}
 
-	return '<label>License</label><select name="license'.$num.'" autocomplete="off">'.$license_options.'</select>';
+	return '<label>License</label><select name="license" autocomplete="off">'.$license_options.'</select>';
 }
-
-/* public function to save data from the resource manager to the local file system
-	Only available for POST requests
-	$_POST['resource_count'] contains the full number of resources being saved.
-	Each resource being saved has an explicit number associated with it in order to group its component metadata fields together.
-	These fields are indexed in the post array using a concatentation of the fieldname and the resource number.
-	Thus, the filename of the 3rd resource is $_POST['filename3'] and the description of the 2nd is $_POST['description2'].
-	Arrays are treated in exactly the same way as single values and can be saved without issue.
-	Files that are designated as "missing" will have their metadata retained even if they are not part of the main POST.
-	The ordering array contains the ids of all the submitted resources in the order they should be saved.
- */
-function page_save_all()
-{
-	global $CONF, $DATA;
-	// check request type
-	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
-		header('HTTP/1.1 405 Method Not Allowed');
-		return;
-	}
-	
-	// ensure that the user is logged in
-	call('authenticate');
-
-	// keep a copy of the old data. This is used to retain resource metadata in the event that a file is missing..
-	$old_data = $DATA;
-	$DATA = array();
-	
-	// loop once for each resource that is being saved
-	foreach ($_POST['ordering'] as $i)
-	{
-		// get the filename, this is used as the main index for the resource.  If no filename is posted, ignore this resource.
-		$filename = rawurldecode($_POST['filename'.$i]);
-		if ($filename == NULL) continue;
-		$_POST['filename'.$i] = $filename;
-
-		// if the resource is marked as missing, retrieve the data from the old array
-		if (isset($_POST['missing']) && in_array($i, $_POST['missing']))
-		{
-			 $DATA[$filename] = $old_data[$filename];
-			continue;
-		}
-
-		// scan through each parameter in the post array
-		foreach ($_POST as $key => $value)
-			// if parameter is of the form fieldname.number - it is a field and should be added to data array in the form $DATA['example.doc']['title'] = "Example document"
-			if (preg_match("/(.*)($i\$)/", $key, $matches))
-				$DATA[$filename][$matches[1]] = $value;
-	}
-
-	call('save_data');
-
-	// redirect to the resource manager
-	header('Location:'.$CONF['script_url'].'?page=resource_manager');
-}
-
 
 /*********************
    RSS Export Module

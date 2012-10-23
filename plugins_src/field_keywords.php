@@ -33,14 +33,11 @@ function generate_output_field_keywords($data)
 }    
 
 // field definition for metadata table
-function generate_input_field_keywords($params)
+function generate_input_field_keywords($data)
 {
-	$data = $params[0];
-	$num = $params[1];
-
-	return '<label>Keywords</label>'.call('generate_multifield_input_widget', array($data,$num,'keywords')).'
-		<div class="new_multifield" id="new_keywords'.$num.'">
-			'._E_('<input name="keywords'.$num.'[]" autocomplete="off" />').'
+	return '<label>Keywords</label>'.call('generate_multifield_input_widget', array($data,'keywords')).'
+		<div class="new_multifield" id="new_keywords">
+			'._E_('<input name="keywords[]" autocomplete="off" />').'
 		</div>';
 }
 
@@ -48,11 +45,10 @@ function generate_input_field_keywords($params)
 function generate_multifield_input_keywords($params)
 {
 	$data = $params[0];
-	$num = $params[1];
-	$i = $params[2];
+	$i = $params[1];
 
 	$keywords = _F_($data, 'keywords');
-	return '<input name="keywords'.$num.'[]" value="'._E_($keywords[$i]).'" autocomplete="off" />';
+		return '<input name="keywords[]" value="'._E_($keywords[$i]).'" autocomplete="off" />';
 }
 
 
