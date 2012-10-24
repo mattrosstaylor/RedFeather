@@ -88,8 +88,6 @@ $CONF['metadata_filename'] = 'resourcedata';
 // The name of the plugins folder
 $CONF['plugin_dir'] = ".";
 
-
-
 // The filename for this script
 $CONF['script_filename'] = array_pop(explode('/', $_SERVER['SCRIPT_NAME']));
 // The full url of the directory RedFeather is installed in.
@@ -146,10 +144,9 @@ function call_optional($function, $param=null)
 // function to provide simple authentication functionality
 function authenticate() {
 	global $CONF, $BODY, $FUNCTION_OVERRIDE;
-return;
 	// check the session for an authenticated user and return to the parent function if valid.
-	session_set_cookie_params(0, $CONF['script_url']);
-	session_start();
+
+return;
 	if(isset($_SESSION['current_user']))
 	{
 		return;
@@ -166,7 +163,6 @@ return;
 	
 
 	// if the user is unauthenticated and not making a signing post, render login screen.	
-
 	$BODY .=
 		'<div id="content"><form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
 			Username: <input type="text" name="username" />
@@ -176,6 +172,30 @@ return;
 
 	call('render_template');
 	exit;
+}
+
+// page to receive POST requests
+function page_post() {
+	global $CONF, $DATA;
+	// check request type
+	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+		header('HTTP/1.1 405 Method Not Allowed');
+		return;
+	}
+	
+	// ensure that the user is logged in
+	call('authenticate');
+
+	// attempt to call the post subroutine	
+	if (isset($_POST['ACTION']))
+	{
+		// unset the ACTION value in the post array
+		$action = $_POST['ACTION'];
+		unset($_POST['ACTION']);
+		call('post_'.$action);
+	}
+	else
+		header('HTTP/1.1 400 Bad Request');
 }
 
 // generates a named toolbar
@@ -203,6 +223,21 @@ function get_resource_list()
 	return $list;
 }
 
+function add_message($message)
+{
+	if (!isset($_SESSION['messages']))
+		$_SESSION['messages'] = array();
+	$_SESSION['messages'][] = $message;
+}
+
+function get_messages()
+{
+	if (!isset($_SESSION['messages']))
+		return array();
+	$messages = $_SESSION['messages'];
+	unset($_SESSION['messages']);
+	return $messages;
+}
 
 /***************************************************
    Helper functions - these cannot be overwritten
@@ -239,6 +274,18 @@ function render_template()
 {
 	global $CONF, $BODY, $TITLE, $CSS, $JS;
 
+
+	$message_html = '';
+	$messages = call('get_messages');
+	
+	if (count($messages) > 0)
+	{
+		$message_html .= '<ul>';
+		foreach ($messages as $m)
+			$message_html .= '<li>'.$m.'</li>';
+		$message_html .= '</ul>';
+	}
+
 	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
 	print 
 		'<!DOCTYPE HTML>
@@ -249,6 +296,7 @@ function render_template()
 			<link rel="stylesheet" type="text/css" href="'.$CONF['script_filename'].'?page=css"/>
 		</head>
 		<body>
+			'.$message_html.'
 			<div id="header"><div class="center">
 				<h1><a href="'.$CONF['script_filename'].'">
 					'.$CONF['repository_name'].'
@@ -526,18 +574,17 @@ $CSS .= <<<EOT
 }
 #preview {
 	width: {$CONF['element_size']['preview_width']}px;
-	max-height: {$CONF['element_size']['preview_height']}px;
-	overflow: hidden;
 	text-align: center;
 	float: left;
 }
 #preview iframe {
 	width: {$CONF['element_size']['preview_width']}px;
 	height: {$CONF['element_size']['preview_height']}px;
+	display: block;
 }
 #preview .message {
-	display: none;
 	text-align: justify;
+	display: none;
 }
 #preview.message_inserted iframe {
 	margin-top: -{$CONF['element_size']['preview_height']}px;
@@ -647,7 +694,7 @@ function page_resource()
 	if (isset($_REQUEST['file']))
 		$filename = rawurldecode($_REQUEST['file']);
 
- 	if (!isset($DATA[$filename]))
+ 	if (!in_array($filename, call('get_resource_list')))
 	{
 		call('fourohfour');
 		return;
@@ -729,10 +776,10 @@ function generate_preview($params)
 	if ($image_size)
 	{
 		// stretch the image to fit preview area, depending on aspect ratio
-		if ($width-$image_size[0] < $height-$image_size[1])
-			return '<img src="'.$file_url.'" width="'.$width.'">';
-		else	
+		if ($image_size[0]/$image_size[1] < $width/$height)
 			return '<img src="'.$file_url.'" height="'.$height.'">';
+		else	
+			return '<img src="'.$file_url.'" width="'.$width.'">';
 	}
 	// if the function failed, attempt to render using googledocs previewer
 	else
@@ -742,6 +789,9 @@ function generate_preview($params)
 			<div class="message"><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>';
 	
 		// place the error message directly underneath the widget
+
+	//	return $error_fallback;
+		//return '<iframe src="http://docs.google.com/viewer?embedded=tru2e&url='._E_($file_url).'"></iframe>'.$error_fallback;
 		return $error_fallback.'<iframe src="http://docs.google.com/viewer?embedded=true&url='._E_($file_url).'"></iframe>';
 	}
 }
@@ -884,6 +934,14 @@ function multifield_add(field) {
 	multifield.append('<div>'+new_item+'<a href="#" onclick="javascript:$(this).parent().remove();return false;">remove</a></div>');
 	add_link.remove().appendTo(multifield);
 }
+function post_delete_form(filename) {
+	if (confirm(filename +"\\nDelete this file?")) {
+		$("#delete_file_field").val(filename);
+		$("#delete_file").submit();
+		return true;
+	}
+	return false;
+}
 EOT;
 
 function page_resource_manager()
@@ -892,61 +950,157 @@ function page_resource_manager()
 
 	call('authenticate');
 	
-	// buffer for copying manageable resources
-	$resource_html = '';
-
 	$TITLE = 'Resource Manager - '.$TITLE;
-	$BODY .= '<div id="content" class="resource_manager"><form action="'.$CONF['script_filename'].'?page=resource_manager_post" method="POST"><h1>Resource Manager</h1>';
+	$BODY .= '<div id="content" class="resource_manager"><h1>Resource Manager</h1>';
 	$BODY .= call('generate_toolbar', 'resource_manager');
 	
-	$unsaved_html = '<table><tbody>';
-	$resource_html = '<table><tbody>';
-
 	$num = 1;
+	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
+	$BODY .= '<table><tbody>';
 
 	// iterate through all the files currently present in the filesystem	
-	foreach (call('get_file_list') as $filename)
+	foreach (call('get_resource_list') as $filename)
 	{
-		// if the metadata exists for the file, render the workflow item and add it to the list of found files
-		if (isset($DATA[$filename]))
-		{
-			$data = $DATA[$filename];
-			$resource_html .= '<tr class="sortable">';
-			$resource_html .= '<td class="number">'.$num++.'.</td>';
-			$resource_html .= '<td>'._EF_($data, 'title').'</td>';
-			$resource_html .= '<td class="updown"><a href="#" class="up">&uarr;</a><a href="#" class="down">&darr;</a></td>';
-			$resource_html .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
-			$resource_html .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">edit</a></td>';
-		//	$resource_html .= '<td><a href="'.$CONF['script_filename'].'?file='.rawurlencode($filename).'">view</a></td>';
-			$resource_html .= '<td><a href="'.$CONF['script_filename'].'?page=delete&file='.rawurlencode($filename).'">delete</a></td>';
-			$resource_html .= '<input type="hidden" name="ordering[]" value="'._E_($filename).'"/>';
-			$resource_html .= '</tr>';
-		}
-		else
-		{
-			$unsaved_html .= '<tr>';
-			$unsaved_html .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
-			$unsaved_html .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">annotate</a></td>';
-			$unsaved_html .= '<td><a href="'.$CONF['script_filename'].'?page=delete&file='.rawurlencode($filename).'">delete</a></td>';
-			$unsaved_html .= '</tr>';
-		}
+		$data = $DATA[$filename];
+		$BODY .= '<tr class="sortable">';
+		$BODY .= '<td class="number">'.$num++.'.</td>';
+		$BODY .= '<td>'._EF_($data, 'title').'</td>';
+		$BODY .= '<td class="updown"><a href="#" class="up">&uarr;</a><a href="#" class="down">&darr;</a></td>';
+		$BODY .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
+		$BODY .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">edit</a></td>';
+		$BODY .= '<td><a href="'.$CONF['script_filename'].'?file='.rawurlencode($filename).'">view</a></td>';
+		$BODY .= '<td><a href="#" onclick="javascript:post_delete_form(\''.$filename.'\');">delete</a></td>';
+		$BODY .= '<input type="hidden" name="ordering[]" value="'._E_($filename).'"/>';
+		$BODY .= '</tr>';
 	}
 
-	$unsaved_html .= '</tbody></table>';
-	$resource_html .= '</tbody></table>';
-
-	$BODY .= $resource_html;
+	$BODY .= '</tbody></table>';
 	// add save button
+	$BODY .= '<input type="hidden" name="ACTION" value="reorder_resources"/>';
 	$BODY .= '<input type="submit" value="Save order"/>';
 	$BODY .= '</form>';
 
+	// hidden form for deletion
+	$BODY .= '<form id="delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete"/><input id="delete_file_field" type="hidden" name="filename"></form>';
+	
+	// get a list of any unannotated files
+	$new_files = array();
+	foreach (call('get_file_list') as $filename)
+		if (!isset($DATA[$filename]))
+			$new_files[] = $filename;
 
+	// generate the table for the new files 
+	if (count($new_files) > 0)
+	{
+		$BODY .= '<h1>Unannotated files</h1>';
+		$BODY .= '<table><tbody>';
+		// render list of new files
+		foreach ($new_files as $filename)
+		{
+			$BODY .= '<tr>';
+			$BODY .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
+			$BODY .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">annotate</a></td>';
+			$BODY .= '<td><a href="#" onclick="javascript:post_delete_form(\''.$filename.'\');">delete</a></td>';
+			$BODY .= '</tr>';    
+		}
 
-	$BODY .= '<h1>Unannotated files</h1>'.$unsaved_html;
+		$BODY .= '</tbody></table>';
+	}
+
+	// new deposit box
+	$BODY .= '<h1>New deposit</h1>';
+	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?page=post" enctype="multipart/form-data">';
+	$BODY .= '<input type="file" name="file" />';
+	$BODY .= '<input type="hidden" name="ACTION" value="upload"/>';
+	$BODY .= '<input type="submit" value="Upload"/>';
+	$BODY .= '</form>';
 
 	$BODY .= '</div></div>';
 	call('render_template');
+}
 
+function post_reorder_resources()
+{
+	global $DATA;
+	
+	$resource_list = call('get_resource_list');
+
+	$new_data = array();
+
+	// check for resources that might have been added due to a race condition - these are added to the top of the list
+	foreach($resource_list as $filename)
+		if (!in_array($filename, $_POST['ordering']))
+		{
+			$new_data[$filename] = $DATA[$filename];
+			call('add_message', $DATA[$filename]['title'].' was added.');
+		}
+
+	// copy resource data to new array if they exist
+	foreach ($_POST['ordering'] as $filename)
+	{
+		if (in_array($filename, $resource_list))
+			$new_data[$filename] = $DATA[$filename];
+		else
+			call('add_message', $filename.' no longer exists.');
+	}
+
+	$DATA = $new_data;
+	call('save_data');
+
+	// redirect to the resource page
+	header('Location:'.$CONF['script_url'].'?page=resource_manager');
+}
+
+function post_upload()
+{
+	$filename = $_FILES['file']['name'];
+
+	if (!check_file_allowed($filename))
+	{
+	//	header('Location:'.$CONF['script_url'].'?page=file_manager');
+		print "file not allowed";
+		return;
+	}
+
+	// check whether the file already exists
+	$file_list = call("get_file_list");
+
+	if (in_array($filename, $file_list))
+	{
+		print "file exists";
+		return;
+	}
+
+	if (!copy($_FILES['file']['tmp_name'], $filename))
+	{
+		print "file cannot be copied";
+		return;
+	}
+	
+	header('Location:'.$CONF['script_url'].'?page=edit&file='.rawurlencode($filename));
+}
+
+function post_delete()
+{
+	global $DATA;
+
+	$filename = $_POST['filename'];
+
+	// check that this file can really be deleted
+	if (in_array($filename, call('get_file_list')))
+	{
+		unlink($filename);
+
+		if (isset($DATA[$filename]))
+		{
+			unset($DATA[$filename]);
+			call('save_data');
+		}
+
+		call('add_message', $filename.' deleted.');
+	}
+	call('add_message', $filename.' does not exist.');
+	header('Location:'.$CONF['script_url'].'?page=resource_manager');
 }
 
 function page_edit()
@@ -979,8 +1133,9 @@ function page_edit()
 		}
 	}
 
-	$BODY .= '<div id="content"><form action="'.$CONF['script_filename'].'?page=save" method="POST">';
+	$BODY .= '<div id="content"><form action="'.$CONF['script_filename'].'?page=post" method="POST">';
 	$BODY .= '<div class="manageable">'.call('generate_manageable_item', $data).'</div>';
+	$BODY .= '<input type="hidden" name="ACTION" value="save_resource">';
 	$BODY .= '<input type="submit" value="Save"/>';
 	$BODY .= '</form></div>';
 
@@ -988,18 +1143,11 @@ function page_edit()
 }
 
 // public function to save data from the resource manager to the local file system
-function page_save()
+function post_save_resource()
 {
 	global $CONF, $DATA;
-	// check request type
-	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
-		header('HTTP/1.1 405 Method Not Allowed');
-		return;
-	}
-	
-	// ensure that the user is logged in
-	call('authenticate');
 
+	// get the filename
 	$filename = $_POST['filename'];
 
 	// replace the data if it already exists, otherwise prepend it to the array as the top item
@@ -1008,11 +1156,10 @@ function page_save()
 	else
 		$DATA = array_merge(array($filename => $_POST), $DATA);
 
-
 	call('save_data');
 
-	// redirect to the resource manager
-	header('Location:'.$CONF['script_url'].'?page=resource_manager');
+	// redirect to the resource page
+	header('Location:'.$CONF['script_url'].'?file='.rawurlencode($filename));
 }
 
 // returns the html for a single item on the resource workflow
@@ -1023,7 +1170,7 @@ function generate_manageable_item($data)
 	// render the basic fields
 	$item_html = '
 		<h1><a href="'._E_(call('get_file_link', _F_($data,'filename'))).'" target="_blank">'._EF_($data,'filename').'</a></h1>
-		<input type="hidden" name="filename" value="'._E_(rawurlencode(_F_($data,'filename'))).'" />';
+		<input type="hidden" name="filename" value="'._EF_($data,'filename').'" />';
 		
 	// optional fields
 	foreach ($CONF['fields'] as $fieldname)
@@ -1328,6 +1475,8 @@ function get_unique_creators() {
 /******************************
    Entry Point for RedFeather
  ******************************/
+session_set_cookie_params(0, $CONF['script_url']);
+session_start();
 
 // If a plugin directory exists, open it and include any php files it contains.
 // Some variables and functions could be overwritten at this point, depending on the plugins installed.
