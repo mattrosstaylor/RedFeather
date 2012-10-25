@@ -77,7 +77,7 @@ $CONF['licenses'] = array(
 $CONF['element_size'] = array(
 	'preview_width'=>680, // width of the resource preview in px
 	'preview_height'=>550, // height of the resource preview in px
-	'metadata_width'=>300, // width of the resource metadata column in px
+	'metadata_width'=>350, // width of the resource metadata column in px
 	'metadata_gap'=>15, // size of the gap between the resource preview and metadata column in px
 	'manager_width'=>500 // width of the resource manager workflow
 );
@@ -1437,7 +1437,7 @@ function generate_rdf_field_title($params)
 
 	return 
 '	<rdf:Description rdf:about="'.$resource_uri.'">
-		<dc:title>"'._EF_($data,'title').'"</dc:title>
+		<dc:title>'._EF_($data,'title').'</dc:title>
 	</rdf:Description>
 ';
 }
