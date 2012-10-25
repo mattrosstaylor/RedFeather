@@ -705,7 +705,7 @@ function page_resource()
 	$TITLE = _EF_($data,'title').' - '.$TITLE;
 	$BODY .=
 		'<div id="content">
-			<div id="preview">'.call('generate_preview', array(_F_($data,'filename'), $CONF['element_size']['preview_width'], $CONF['element_size']['preview_height'])).'</div>
+			<div id="preview">'.call('generate_preview', _F_($data,'filename')).'</div>
 			<div class="metadata">
 			'.call('generate_toolbar', 'resource').'
 			</div>
@@ -760,12 +760,11 @@ function generate_comment_widget($this_url)
 	Otherwise, it will be rendered using the googledocs previewer.
 	Due to a bug in the googledocs API, the service can sometimes silently fail and return an empty iframe.
 	Since there is no way to detect this when it occurs, and is a fatal bug in terms of preview functionality, a workaround has been devised where an error message is hidden underneath the preview widget.  If the preview widget fails it will be visible through the empty iframe. */
-function generate_preview($params)
+function generate_preview($filename)
 {
 	global $CONF;
-	$filename = $params[0];
-	$width = $params[1];
-	$height = $params[2];
+	$width = $CONF['element_size']['preview_width'];
+	$height = $CONF['element_size']['preview_height'];
 
 	// get absolute url for file
 	$file_url = call('get_file_link', $filename);
@@ -777,9 +776,9 @@ function generate_preview($params)
 	{
 		// stretch the image to fit preview area, depending on aspect ratio
 		if ($image_size[0]/$image_size[1] < $width/$height)
-			return '<img src="'.$file_url.'" height="'.$height.'">';
+			return '<img src="'._E_($file_url).'" height="'.$height.'">';
 		else	
-			return '<img src="'.$file_url.'" width="'.$width.'">';
+			return '<img src="'._E_($file_url).'" width="'.$width.'">';
 	}
 	// if the function failed, attempt to render using googledocs previewer
 	else
@@ -792,7 +791,7 @@ function generate_preview($params)
 
 	//	return $error_fallback;
 		//return '<iframe src="http://docs.google.com/viewer?embedded=tru2e&url='._E_($file_url).'"></iframe>'.$error_fallback;
-		return $error_fallback.'<iframe src="http://docs.google.com/viewer?embedded=true&url='._E_($file_url).'"></iframe>';
+		return $error_fallback.'<iframe src="http://docs.google.com/viewer?embedded=true&url='._E_(urlencode($file_url)).'"></iframe>';
 	}
 }
 
@@ -859,15 +858,14 @@ function generate_output_field_download($data)
  ***************************/
 
 $CSS .= <<<EOT
+.resource_manager table {
+	margin-left: 20px;
+}
+.resource_manager form {
+	margin-bottom: 12px;
+}
 .resource_manager table td {
 	padding: 0 15px 0 0;
-}
-.number {
-	color: {$CONF['theme']['text2']};
-}
-.updown {
-	font-size: 20px;
-	font-weight: bold;
 }
 tbody tr:first-child > td > .up { 
 	visibility: hidden;
@@ -877,6 +875,13 @@ tbody tr:last-child > td > .down {
 }
 .end_field {
 	margin-bottom: 10px;
+}
+.number {
+	color: {$CONF['theme']['text2']};
+}
+.updown {
+	font-size: 20px;
+	font-weight: bold;
 }
 .manageable label {
 	display: inline-block;
@@ -980,9 +985,6 @@ function page_resource_manager()
 	$BODY .= '<input type="submit" value="Save order"/>';
 	$BODY .= '</form>';
 
-	// hidden form for deletion
-	$BODY .= '<form id="delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete"/><input id="delete_file_field" type="hidden" name="filename"></form>';
-	
 	// get a list of any unannotated files
 	$new_files = array();
 	foreach (call('get_file_list') as $filename)
@@ -999,7 +1001,7 @@ function page_resource_manager()
 		{
 			$BODY .= '<tr>';
 			$BODY .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
-			$BODY .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">annotate</a></td>';
+			$BODY .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">edit</a></td>';
 			$BODY .= '<td><a href="#" onclick="javascript:post_delete_form(\''.$filename.'\');">delete</a></td>';
 			$BODY .= '</tr>';    
 		}
@@ -1007,12 +1009,17 @@ function page_resource_manager()
 		$BODY .= '</tbody></table>';
 	}
 
+	// hidden form for deletion
+	$BODY .= '<form id="delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete"/><input id="delete_file_field" type="hidden" name="filename"></form>';
+	
+
 	// new deposit box
 	$BODY .= '<h1>New deposit</h1>';
 	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?page=post" enctype="multipart/form-data">';
 	$BODY .= '<input type="file" name="file" />';
 	$BODY .= '<input type="hidden" name="ACTION" value="upload"/>';
 	$BODY .= '<input type="submit" value="Upload"/>';
+	$BODY .= '<input type="checkbox" name="overwrite" />Overwrite existing file<br>';
 	$BODY .= '</form>';
 
 	$BODY .= '</div></div>';
@@ -1051,29 +1058,62 @@ function post_reorder_resources()
 	header('Location:'.$CONF['script_url'].'?page=resource_manager');
 }
 
+function get_upload_error_message($code)
+{
+	switch ($code) { 
+		case UPLOAD_ERR_INI_SIZE: 
+			return 'The uploaded file exceeds the upload_max_filesize directive in php.ini'; 
+		case UPLOAD_ERR_FORM_SIZE: 
+			return 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form'; 
+		case UPLOAD_ERR_PARTIAL: 
+			return 'The uploaded file was only partially uploaded'; 
+		case UPLOAD_ERR_NO_FILE: 
+			return 'No file was uploaded';
+		case UPLOAD_ERR_NO_TMP_DIR: 
+			return 'Missing a temporary folder'; 
+		case UPLOAD_ERR_CANT_WRITE: 
+			return 'Failed to write file to disk';
+		case UPLOAD_ERR_EXTENSION:
+			return 'File upload stopped by extension'; 
+		default:
+			return 'Unknown upload error';
+	} 
+} 
+
 function post_upload()
 {
 	$filename = $_FILES['file']['name'];
 
+	$filename = utf8_decode($filename);
+
+	if ($_FILES['file']['error'] > 0)
+	{
+		call('add_message', call('get_upload_error_message', $_FILES['file']['error']));
+		header('Location:'.$CONF['script_url'].'?page=resource_manager');
+		return;
+	}
+
 	if (!check_file_allowed($filename))
 	{
-	//	header('Location:'.$CONF['script_url'].'?page=file_manager');
-		print "file not allowed";
+		call('add_message', 'Invalid file type');
+		header('Location:'.$CONF['script_url'].'?page=resource_manager');
 		return;
 	}
 
 	// check whether the file already exists
 	$file_list = call("get_file_list");
 
-	if (in_array($filename, $file_list))
+	if (in_array($filename, $file_list) && !$_POST['overwrite'])
 	{
-		print "file exists";
+		call('add_message', 'File already exists');
+		header('Location:'.$CONF['script_url'].'?page=resource_manager');
 		return;
 	}
 
 	if (!copy($_FILES['file']['tmp_name'], $filename))
 	{
-		print "file cannot be copied";
+		call('add_message', 'File write error');
+		header('Location:'.$CONF['script_url'].'?page=resource_manager');
 		return;
 	}
 	
@@ -1089,7 +1129,12 @@ function post_delete()
 	// check that this file can really be deleted
 	if (in_array($filename, call('get_file_list')))
 	{
-		unlink($filename);
+		if (!unlink($filename))
+		{
+			call('add_message', 'File delete error');
+			header('Location:'.$CONF['script_url'].'?page=resource_manager');
+			return;
+		}
 
 		if (isset($DATA[$filename]))
 		{
@@ -1099,7 +1144,9 @@ function post_delete()
 
 		call('add_message', $filename.' deleted.');
 	}
-	call('add_message', $filename.' does not exist.');
+	else
+		call('add_message', $filename.' does not exist.');
+
 	header('Location:'.$CONF['script_url'].'?page=resource_manager');
 }
 
@@ -1133,12 +1180,13 @@ function page_edit()
 		}
 	}
 
-	$BODY .= '<div id="content"><form action="'.$CONF['script_filename'].'?page=post" method="POST">';
+	$BODY .= '<div id="content">';
+	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
 	$BODY .= '<div class="manageable">'.call('generate_manageable_item', $data).'</div>';
 	$BODY .= '<input type="hidden" name="ACTION" value="save_resource">';
 	$BODY .= '<input type="submit" value="Save"/>';
-	$BODY .= '</form></div>';
-
+	$BODY .= '</form>';
+	$BODY .= '</div>';
 	call('render_template');
 }
 
