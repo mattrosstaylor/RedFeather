@@ -35,7 +35,9 @@ $CONF = array();
 	);
 
 	// Array of username/password combinations that are allowed to access the resource manager
-	$CONF['users'] = array('admin'=>'password');
+	// the passwords can either be plain text, or MD5 encoded
+//	$CONF['users'] = array('admin'=>'password');
+	$CONF['users'] = array('admin'=>'5f4dcc3b5aa765d61d8327deb882cf99');
 
 
 /**************************
@@ -141,37 +143,13 @@ function call_optional($function, $param=null)
 	else return;
 }
 
-// function to provide simple authentication functionality
-function authenticate() {
-	global $CONF, $BODY, $FUNCTION_OVERRIDE;
-	// check the session for an authenticated user and return to the parent function if valid.
-
-return;
-	if(isset($_SESSION['current_user']))
-	{
+// function to check a user is authenticated - will block actions otherwise
+function authenticate()
+{
+	if (isset($_SESSION['current_user']))
 		return;
-	}
-
-	// If this is a post requesting to log in, check username and password against authorised credentials.
-	if (isset($_POST['username']) && isset($_POST['password']) 
-		&& isset($CONF['users'][$_POST['username']]) 
-		&& $CONF['users'][$_POST['username']]==$_POST['password']) 
-	{
-		$_SESSION['current_user']=$_POST['username'];
-		return;
-	}
-	
-
-	// if the user is unauthenticated and not making a signing post, render login screen.	
-	$BODY .=
-		'<div id="content"><form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
-			Username: <input type="text" name="username" />
-			Password: <input type="password" name="password" />
-			<input type="submit" value="Login" />
-		</form></div>';
-
-	call('render_template');
-	exit;
+	else
+		call_optional('fourohone');
 }
 
 // page to receive POST requests
@@ -197,6 +175,38 @@ function page_post() {
 	else
 		header('HTTP/1.1 400 Bad Request');
 }
+
+// function to provide simple authentication functionality
+function authenticate_login()
+{
+	global $CONF, $BODY;
+
+	// check the session for an authenticated user and return to the parent function if valid.
+	if(isset($_SESSION['current_user']))
+		return;
+
+	// If this is a post requesting to log in, check username and password against authorised credentials.
+	if (isset($_POST['username']) && isset($_POST['password']) && isset($CONF['users'][$_POST['username']]))
+	{
+		if ($CONF['users'][$_POST['username']] == $_POST['password'] || $CONF['users'][$_POST['username']] == md5($_POST['password'])) 
+		{
+			$_SESSION['current_user']=$_POST['username'];
+			return;
+		}
+	}
+	
+	// if the user is unauthenticated and not making a signing post, render login screen.	
+	$BODY .= '<div id="content"><h1>Log in</h1>';
+	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
+			Username <input type="text" name="username" />
+			Password <input type="password" name="password" />
+			<input type="submit" value="Login" />
+		</form></div>';
+
+	call('render_template');
+	exit;
+}
+
 
 // generates a named toolbar
 function generate_toolbar($toolbar)
@@ -280,7 +290,7 @@ function render_template()
 	
 	if (count($messages) > 0)
 	{
-		$message_html .= '<ul>';
+		$message_html .= '<ul id="error_list" class="center">';
 		foreach ($messages as $m)
 			$message_html .= '<li>'.$m.'</li>';
 		$message_html .= '</ul>';
@@ -329,6 +339,17 @@ function generate_toolbar_item_footer_resource_manager()
 {
 	global $CONF;
 	return '<a href="'.$CONF['script_filename'].'?page=resource_manager">Resource Manager</a>';
+}
+
+// output a 401 page
+function fourohone()
+{
+	global $BODY, $TITLE;
+	$TITLE = '401 - '.$TITLE;
+	$BODY .= '<div id="content"><h1>401</h1><p>You are not authenticated.</p></div>';
+	header('Status: 401 Not Found');	
+	call('render_template');
+	exit;
 }
 
 // output a 404 page
@@ -472,6 +493,10 @@ a:hover, a:active {
 }
 .clearer {
 	clear: both;
+}
+#error_list {
+	list-style: square inside;
+	padding: 7px 0;
 }
 EOT;
 	header('Content-type: text/css');
@@ -953,7 +978,7 @@ function page_resource_manager()
 {
 	global $CONF, $DATA, $BODY, $TITLE;
 
-	call('authenticate');
+	call('authenticate_login');
 	
 	$TITLE = 'Resource Manager - '.$TITLE;
 	$BODY .= '<div id="content" class="resource_manager"><h1>Resource Manager</h1>';
@@ -1154,7 +1179,7 @@ function page_edit()
 {
 	global $CONF, $DATA, $BODY, $TITLE;
 
-	call('authenticate');
+	call('authenticate_login');
 
 	$filename = '';	
 	$data = '';
