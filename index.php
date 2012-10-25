@@ -1,5 +1,5 @@
 <?php
-ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ALL);
+ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ERROR | E_PARSE);
 
 // global variable for configuration
 $CONF = array(); 
@@ -36,8 +36,8 @@ $CONF = array();
 
 	// Array of username/password combinations that are allowed to access the resource manager
 	// the passwords can either be plain text, or MD5 encoded
-//	$CONF['users'] = array('admin'=>'password');
-	$CONF['users'] = array('admin'=>'5f4dcc3b5aa765d61d8327deb882cf99');
+//	$CONF['credentials'] = array('admin'=>'password');
+	$CONF['credentials'] = array('admin'=>'5f4dcc3b5aa765d61d8327deb882cf99');
 
 
 /**************************
@@ -146,6 +146,9 @@ function call_optional($function, $param=null)
 // function to check a user is authenticated - will block actions otherwise
 function authenticate()
 {
+	session_set_cookie_params(0, $CONF['script_url']);
+	session_start();
+
 	if (isset($_SESSION['current_user']))
 		return;
 	else
@@ -179,6 +182,9 @@ function page_post() {
 // function to provide simple authentication functionality
 function authenticate_login()
 {
+	session_set_cookie_params(0, $CONF['script_url']);
+	session_start();
+
 	global $CONF, $BODY;
 
 	// check the session for an authenticated user and return to the parent function if valid.
@@ -186,9 +192,9 @@ function authenticate_login()
 		return;
 
 	// If this is a post requesting to log in, check username and password against authorised credentials.
-	if (isset($_POST['username']) && isset($_POST['password']) && isset($CONF['users'][$_POST['username']]))
+	if (isset($_POST['username']) && isset($_POST['password']) && isset($CONF['credentials'][$_POST['username']]))
 	{
-		if ($CONF['users'][$_POST['username']] == $_POST['password'] || $CONF['users'][$_POST['username']] == md5($_POST['password'])) 
+		if ($CONF['credentials'][$_POST['username']] == $_POST['password'] || $CONF['credentials'][$_POST['username']] == md5($_POST['password'])) 
 		{
 			$_SESSION['current_user']=$_POST['username'];
 			return;
@@ -324,6 +330,7 @@ function render_template()
 			</div>
 			<div id="footer">
 				<div class="center">'.call('generate_toolbar','footer').'</div>
+			</div>
 		</html>';
 
 }
@@ -1085,23 +1092,23 @@ function post_reorder_resources()
 
 function get_upload_error_message($code)
 {
-	switch ($code) { 
-		case UPLOAD_ERR_INI_SIZE: 
-			return 'The uploaded file exceeds the upload_max_filesize directive in php.ini'; 
-		case UPLOAD_ERR_FORM_SIZE: 
-			return 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form'; 
-		case UPLOAD_ERR_PARTIAL: 
-			return 'The uploaded file was only partially uploaded'; 
-		case UPLOAD_ERR_NO_FILE: 
-			return 'No file was uploaded';
-		case UPLOAD_ERR_NO_TMP_DIR: 
-			return 'Missing a temporary folder'; 
+	switch ($code) {
+		case UPLOAD_ERR_INI_SIZE:
+			return 'The uploaded file is larger than permitted by this server.';
+		case UPLOAD_ERR_FORM_SIZE:
+			return 'The uploaded file is too large.';
+		case UPLOAD_ERR_PARTIAL:
+			return 'The uploaded file was only partially uploaded';
+		case UPLOAD_ERR_NO_FILE:
+			return 'No file was uploaded.';
+		case UPLOAD_ERR_NO_TMP_DIR:
+			return 'Missing a temporary folder.';
 		case UPLOAD_ERR_CANT_WRITE: 
-			return 'Failed to write file to disk';
+			return 'Failed to write file to disk.';
 		case UPLOAD_ERR_EXTENSION:
-			return 'File upload stopped by extension'; 
+			return 'File upload stopped by extension.'; 
 		default:
-			return 'Unknown upload error';
+			return 'Unknown upload error.';
 	} 
 } 
 
@@ -1120,7 +1127,7 @@ function post_upload()
 
 	if (!check_file_allowed($filename))
 	{
-		call('add_message', 'Invalid file type');
+		call('add_message', 'Invalid file type.');
 		header('Location:'.$CONF['script_url'].'?page=resource_manager');
 		return;
 	}
@@ -1130,14 +1137,14 @@ function post_upload()
 
 	if (in_array($filename, $file_list) && !$_POST['overwrite'])
 	{
-		call('add_message', 'File already exists');
+		call('add_message', 'File already exists.');
 		header('Location:'.$CONF['script_url'].'?page=resource_manager');
 		return;
 	}
 
 	if (!copy($_FILES['file']['tmp_name'], $filename))
 	{
-		call('add_message', 'File write error');
+		call('add_message', 'File could not be written.');
 		header('Location:'.$CONF['script_url'].'?page=resource_manager');
 		return;
 	}
@@ -1156,7 +1163,7 @@ function post_delete()
 	{
 		if (!unlink($filename))
 		{
-			call('add_message', 'File delete error');
+			call('add_message', 'File could not be deleted.');
 			header('Location:'.$CONF['script_url'].'?page=resource_manager');
 			return;
 		}
@@ -1294,7 +1301,7 @@ function generate_input_field_creators($data)
 {
 	return '<label>Creators</label>'.call('generate_multifield_input_widget', array($data,'creators')).'
 		<div class="new_multifield" id="new_creators">
-			'._E_('<input name="creators[]" autocomplete="off" /><input name="emails[]" autocomplete="off" />').'
+			'._E_('<input name="creators[]" placeholder="name" autocomplete="off" /><input name="emails[]" placeholder="email" autocomplete="off" />').'
 		</div>';
 }
 
@@ -1306,7 +1313,7 @@ function generate_multifield_input_creators($params)
 	$creators = _F_($data, 'creators');
 	$emails = _F_($data, 'emails');
 
-	return '<input name="creators[]" value="'._E_($creators[$i]).'" autocomplete="off" /><input name="emails[]" value="'._E_($emails[$i]).'" autocomplete="off" />';
+	return '<input name="creators[]" value="'._E_($creators[$i]).'" placeholder="name" autocomplete="off" /><input name="emails[]" value="'._E_($emails[$i]).'" placeholder="email" autocomplete="off" />';
 }
 
 // field definition for manageable item
@@ -1548,9 +1555,6 @@ function get_unique_creators() {
 /******************************
    Entry Point for RedFeather
  ******************************/
-session_set_cookie_params(0, $CONF['script_url']);
-session_start();
-
 // If a plugin directory exists, open it and include any php files it contains.
 // Some variables and functions could be overwritten at this point, depending on the plugins installed.
 if(is_dir($CONF['plugin_dir']))
