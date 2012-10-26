@@ -89,8 +89,13 @@ $CONF['default_page'] = 'page_browse';
 
 // The file used for storing the resource metadata
 $CONF['metadata_filename'] = 'resourcedata';
-// The name of the plugins folder
+// The path to search for plugins
 $CONF['plugin_dir'] = ".";
+
+// global variable to allow function overriding
+$FUNCTION_OVERRIDE = array(
+//	'page_browse'=>'page_browse_new',
+);
 
 // The filename for this script
 $CONF['script_filename'] = array_pop(explode('/', $_SERVER['SCRIPT_NAME']));
@@ -102,27 +107,19 @@ $CONF['script_url'] = $CONF['base_url'].$CONF['script_filename'];
 // global variable to store resource data
 $DATA = array();
 // global variable for page title
-$TITLE = $CONF['repository_name'];
+$TITLE = '';
 // global variable to buffer main body html
 $BODY = '';
 
-// global variable to allow function overriding
-$FUNCTION_OVERRIDE = array(
-//	'page_browse'=>'page_browse_new',
-);
 
-
-/**************
-   Base pages 
- **************/
-
-// render using template
+/*******************************
+   Default RedFeather template 
+ *******************************/
 function render_template()
 {
 	global $CONF, $BODY, $TITLE;
 
 	$page_width = $CONF['element_size']['preview_width']+$CONF['element_size']['metadata_gap']+$CONF['element_size']['metadata_width'];
-
 	$template_css = <<<EOT
 /* http://meyerweb.com/eric/tools/css/reset/ 
    v2.0 | 20110126
@@ -251,29 +248,16 @@ a:hover, a:active {
 }
 EOT;
 
-	$message_html = '';
-	$messages = call('get_messages');
-	
-	if (count($messages) > 0)
-	{
-		$message_html .= '<ul id="rf_error_list" class="rf_center">';
-		foreach ($messages as $m)
-			$message_html .= '<li>'.$m.'</li>';
-		$message_html .= '</ul>';
-	}
-
 	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
 	print 
 		'<!DOCTYPE HTML>
 		<html><head>
 			<title>'.$TITLE.'</title>
 			<style type="text/css">'.$template_css.'</style>
-			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-			<script src="'.$CONF['script_filename'].'?page=javascript" type="text/javascript"></script>
-			<link rel="stylesheet" type="text/css" href="'.$CONF['script_filename'].'?page=css"/>
-		</head>
+			'.call('generate_head_elements').'
+			</head>
 		<body>
-			'.$message_html.'
+			'.call('generate_message_list').'
 			<div id="rf_header"><div class="rf_center">
 				<h1><a href="'.$CONF['script_filename'].'">
 					'.$CONF['repository_name'].'
@@ -308,69 +292,6 @@ function generate_toolbar_item_footer_resource_manager()
 	return '<a href="'.$CONF['script_filename'].'?page=resource_manager">Resource Manager</a>';
 }
 
-// Public function for CSS
-function page_css()
-{
-	global $CONF;
-	header('Content-type: text/css');
-	foreach ($CONF['css'] as $s)
-		print call($s);
-}
-
-// Public function for getting js
-function page_javascript()
-{
-	global $CONF;
-	header('Content-type: text/javascript');
-	foreach ($CONF['javascript'] as $s)
-		print call($s);
-}
-
-// page to receive POST requests
-function page_post() {
-	global $CONF, $DATA;
-	// check request type
-	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
-		header('HTTP/1.1 405 Method Not Allowed');
-		return;
-	}
-	
-	// ensure that the user is logged in
-	call('authenticate');
-
-	// attempt to call the post subroutine	
-	if (isset($_POST['ACTION']))
-	{
-		// unset the ACTION value in the post array
-		$action = $_POST['ACTION'];
-		unset($_POST['ACTION']);
-		call('post_'.$action);
-	}
-	else
-		header('HTTP/1.1 400 Bad Request');
-}
-
-// output a 401 page
-function fourohone()
-{
-	global $BODY, $TITLE;
-	$TITLE = '401 - '.$TITLE;
-	$BODY .= '<div id="rf_fourohone" class="rf_content"><h1>401</h1><p>You are not authenticated.</p></div>';
-	header('Status: 401 Not Found');	
-	call('render_template');
-	exit;
-}
-
-// output a 404 page
-function fourohfour()
-{
-	global $BODY, $TITLE;
-	$TITLE = '404 - '.$TITLE;
-	$BODY .= '<div id="rf_fourohfour" class="rf_content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
-	header('Status: 404 Not Found');	
-	call('render_template');
-}
- 
 
 /***********************
    Browse/View Module
@@ -380,28 +301,33 @@ function fourohfour()
 // Lists all the resources that have been annotated and provides a facility to search.
 function page_browse()
 {
-	global $CONF, $DATA, $BODY;
-
+	global $BODY;
 	$BODY .= '<div id="rf_page_browse" class="rf_content">'.call('generate_toolbar', 'browse');
+	$BODY .= call('generate_resource_list');	
+	$BODY .= '</div>';
+	call('render_template');
+}
 
+// generates a list of all the public resources in RedFeather
+function generate_resource_list()
+{
+	global $CONF, $DATA;
+	$html = '';
 	// get the list of all files within the RedFeather scope
 	foreach(call('get_resource_list') as $filename)
 	{
 		$data = $DATA[$filename];
 		// render the resource using the "generate_metadata_table" function
 		$url = $CONF['script_filename'].'?file='.rawurlencode($filename);
-		$BODY .= 
+		$html .= 
 			'<div class="rf_resource">
 				<h1><a href="'.$url.'">'._EF_($data,'title').'</a></h1>
 				<p>'.nl2br(_EF_($data,'description')).'</p>
 				'.call('generate_metadata_table', $data).'
 			</div>';
 	}
-	$BODY .= '</div>';
-
-	call('render_template');
+	return $html;
 }
-
 
 // toolbar item for browse page
 function generate_toolbar_item_browse_search()
@@ -419,7 +345,6 @@ function generate_toolbar_item_browse_rss()
 // toolbar item for browse page
 function generate_toolbar_item_browse_rdf()
 {
-
 	global $CONF;
 	return '<a href="'.$CONF['script_filename'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
 }
@@ -736,7 +661,7 @@ function page_resource_manager()
 	}
 
 	// hidden form for deletion
-	$BODY .= '<form id="rf_delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete_resource"/><input id="rf_delete_file_field" type="hidden" name="filename"></form>';
+	$BODY .= '<form id="rf_delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete"/><input id="rf_delete_file_field" type="hidden" name="filename"></form>';
 	
 
 	// new deposit box
@@ -785,7 +710,7 @@ function page_edit()
 	$BODY .= '<div id="rf_page_edit" class="rf_content">';
 	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
 	$BODY .= '<div class="rf_manageable">'.call('generate_manageable_item', $data).'</div>';
-	$BODY .= '<input type="hidden" name="ACTION" value="save_resource">';
+	$BODY .= '<input type="hidden" name="ACTION" value="save">';
 	$BODY .= '<input type="submit" value="Save"/>';
 	$BODY .= '</form>';
 	$BODY .= '</div>';
@@ -982,7 +907,7 @@ function post_upload()
 }
 
 // public function to save data from the resource manager to the local file system
-function post_save_resource()
+function post_save()
 {
 	global $CONF, $DATA;
 
@@ -1001,7 +926,7 @@ function post_save_resource()
 	header('Location:'.$CONF['script_url'].'?file='.rawurlencode($filename));
 }
 
-function post_delete_resource()
+function post_delete()
 {
 	global $DATA;
 
@@ -1415,6 +1340,73 @@ function save_data()
 	fclose($fh);
 }
 
+
+/*****************
+   Utility pages
+ *****************/
+// Public function for CSS
+function page_css()
+{
+	global $CONF;
+	header('Content-type: text/css');
+	foreach ($CONF['css'] as $css)
+		print call($css);
+}
+
+// Public function for getting js
+function page_javascript()
+{
+	global $CONF;
+	header('Content-type: text/javascript');
+	foreach ($CONF['javascript'] as $js)
+		print call($js);
+}
+
+// page to receive POST requests
+function page_post() {
+	global $CONF, $DATA;
+	// check request type
+	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+		header('HTTP/1.1 405 Method Not Allowed');
+		return;
+	}
+	
+	// ensure that the user is logged in
+	call('authenticate');
+
+	// attempt to call the post subroutine	
+	if (isset($_POST['ACTION']))
+	{
+		// unset the ACTION value in the post array
+		$action = $_POST['ACTION'];
+		unset($_POST['ACTION']);
+		call('post_'.$action);
+	}
+	else
+		header('HTTP/1.1 400 Bad Request');
+}
+
+// output a 401 page
+function fourohone()
+{
+	global $BODY, $TITLE;
+	$TITLE = '401 - '.$TITLE;
+	$BODY .= '<div id="rf_fourohone" class="rf_content"><h1>401</h1><p>You are not authenticated.</p></div>';
+	header('Status: 401 Not Found');	
+	call('render_template');
+	exit;
+}
+
+// output a 404 page
+function fourohfour()
+{
+	global $BODY, $TITLE;
+	$TITLE = '404 - '.$TITLE;
+	$BODY .= '<div id="rf_fourohfour" class="rf_content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
+	header('Status: 404 Not Found');	
+	call('render_template');
+}
+ 
 /*********************
    Utility Functions
  *********************/
@@ -1430,7 +1422,7 @@ function call($function, $param=null)
 		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
 	else if (function_exists($function))
 		return call_user_func($function, $param);
-	else call_optional('fourohfour');
+	else die($function.' is not a valid function');
 }
 
 // as above but doesn't give an error if a non-existent function is called
@@ -1442,6 +1434,17 @@ function call_optional($function, $param=null)
 	else if (function_exists($function))
 		return call_user_func($function, $param);
 	else return;
+}
+
+// as above but shows a 404 if the function doesn't exist
+function call_page($function, $param=null)
+{
+	global $FUNCTION_OVERRIDE;
+	if (isset($FUNCTION_OVERRIDE[$function]))
+		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
+	else if (function_exists($function))
+		return call_user_func($function, $param);
+	else call('fourohfour');
 }
 
 // function to check a user is authenticated - will block actions otherwise
@@ -1516,6 +1519,8 @@ function get_resource_list()
 	return $list;
 }
 
+
+// add a message to the queue
 function add_message($message)
 {
 	if (!isset($_SESSION['messages']))
@@ -1532,6 +1537,26 @@ function get_messages()
 	return $messages;
 }
 
+function generate_message_list()
+{
+	$html = '';
+	$messages = call('get_messages');
+	if (count($messages) > 0)
+	{
+		$html .= '<ul id="rf_error_list">';
+		foreach ($messages as $m)
+			$html .= '<li>'.$m.'</li>';
+		$html .= '</ul>';
+	}
+	return $html;
+}
+
+function generate_head_elements()
+{
+	return '<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+<script src="'.$CONF['script_filename'].'?page=javascript" type="text/javascript"></script>
+<link rel="stylesheet" type="text/css" href="'.$CONF['script_filename'].'?page=css"/>';
+}
 
 /***************************************************
    Helper functions - these cannot be overwritten
@@ -1572,6 +1597,8 @@ if(is_dir($CONF['plugin_dir']))
 				include($CONF['plugin_dir'].'/'.$file);
 		closedir($dh);
 	}
+// title needs to be set AFTER plugins have been loaded
+$TITLE = $CONF['repository_name'];
 
 // Load the resource metadata
 call('load_data');
@@ -1581,11 +1608,11 @@ call('load_data');
 // If a "file" parameter has been specified in isolation, load the resource page.
 // If no parameter has been specified, use the default.
 if(isset($_REQUEST['page']))
-	call('page_'.$_REQUEST['page']);
+	call_page('page_'.$_REQUEST['page']);
 else if (isset($_REQUEST['file']))
-	call('page_view');
+	call_page('page_view');
 else
-	call($CONF['default_page']);
+	call_page($CONF['default_page']);
 
 /*******
    End
