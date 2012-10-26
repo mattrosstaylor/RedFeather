@@ -398,7 +398,7 @@ function page_browse()
 				'.call('generate_metadata_table', $data).'
 			</div>';
 	}
-	$BODY .= '</div></div>';
+	$BODY .= '</div>';
 
 	call('render_template');
 }
@@ -1052,6 +1052,9 @@ tbody tr:last-child > td > .rf_down {
 .rf_updown {
 	font-size: 20px;
 	font-weight: bold;
+}
+.rf_up, .rf_down {
+	text-decoration: none;
 }
 .rf_manageable label {
 	display: inline-block;
