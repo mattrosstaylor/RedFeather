@@ -1,18 +1,23 @@
 <?php
 
 
-array_push($CONF['fields'], 'keywords');	
-array_push($CONF['toolbars']['browse'], 'tagcloud');
+$CONF['fields'][] = 'keywords';
+$CONF['toolbar']['browse'][] = 'browse_tagcloud';
+$CONF['css'][] = 'css_field_keywords';
 
 $CONF['tagcloud_minsize'] = 20;
 $CONF['tagcloud_maxsize'] = 72;
 
 
-$CSS .= <<<EOT
+function css_field_keywords()
+{ 
+	return <<<EOT
 .rf_keyword:hover {
 	text-decoration: underline;
 }
 EOT;
+}
+
 
 // field definition for metadata table
 function generate_output_field_keywords($data)

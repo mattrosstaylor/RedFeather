@@ -53,13 +53,6 @@ $CONF['fields'] = array(
 	'download',
 );
 
-// Toolbars
-$CONF['toolbars'] = array(
-	'footer' => array('credit', 'resource_manager'),
-	'browse' => array('search', 'rss', 'rdf'),
-	'resource_manager' => array()
-);
-
 // List of available licenses for RedFeather
 $CONF['licenses'] = array(
 	''=>'unspecified',
@@ -69,6 +62,17 @@ $CONF['licenses'] = array(
 	'by-nc'=>'Attribution-NonCommercial',
 	'by-nc-sa'=>'Attribution-NonCommerical-ShareAlike',
 	'by-nc-nd'=>'Attribution-NonCommerical-NoDerivs',
+);
+
+// list of functions returning css and javascript respectively
+$CONF['css'] = array('css_view', 'css_resource_manager');
+$CONF['javascript'] = array('javascript_view', 'javascript_resource_manager');
+
+// Toolbars
+$CONF['toolbar'] = array(
+	'footer' => array('footer_credit', 'footer_resource_manager'),
+	'browse' => array('browse_search', 'browse_rss', 'browse_rdf'),
+	'resource_manager' => array()
 );
 
 // Dimensions for various elements for the site.
@@ -101,10 +105,6 @@ $DATA = array();
 $TITLE = $CONF['repository_name'];
 // global variable to buffer main body html
 $BODY = '';
-// global variable to buffer CSS
-$CSS = '';
-// global variable to buffer Javascript
-$JS = '';
 
 // global variable to allow function overriding
 $FUNCTION_OVERRIDE = array(
@@ -119,7 +119,7 @@ $FUNCTION_OVERRIDE = array(
 // render using template
 function render_template()
 {
-	global $CONF, $BODY, $TITLE, $CSS, $JS;
+	global $CONF, $BODY, $TITLE;
 
 	$page_width = $CONF['element_size']['preview_width']+$CONF['element_size']['metadata_gap']+$CONF['element_size']['metadata_width'];
 
@@ -245,9 +245,6 @@ a:hover, a:active {
 .rf_content {
 	padding: 6px 0 6px 0;
 }
-.rf_clearer {
-	clear: both;
-}
 #rf_error_list {
 	list-style: square inside;
 	padding: 7px 0;
@@ -314,17 +311,19 @@ function generate_toolbar_item_footer_resource_manager()
 // Public function for CSS
 function page_css()
 {
-	global $CONF, $CSS;
+	global $CONF;
 	header('Content-type: text/css');
-	print $CSS;
+	foreach ($CONF['css'] as $s)
+		print call($s);
 }
 
 // Public function for getting js
 function page_javascript()
 {
-	global $JS;
+	global $CONF;
 	header('Content-type: text/javascript');
-	print $JS;
+	foreach ($CONF['javascript'] as $s)
+		print call($s);
 }
 
 // page to receive POST requests
@@ -445,7 +444,7 @@ function page_view()
 
 	$TITLE = _EF_($data,'title').' - '.$TITLE;
 	$BODY .=
-		'<div id="rf_page_resource" class="rf_content">
+		'<div id="rf_page_view" class="rf_content">
 			'.call('generate_resource', $data).'
 		</div>';
 
@@ -455,10 +454,11 @@ function page_view()
 // generates the resource itself
 function generate_resource($data)
 {
-	return call('generate_preview', _F_($data,'filename')).'
+	return '
+		'.call('generate_preview', _F_($data,'filename')).'
 		<div id="rf_metadata">
 			<h1>'._EF_($data,'title').'</h1>
-			<p>'._EF_($data,'description').'</p>
+			<p>'.nl2br(_EF_($data,'description')).'</p>
 			'.call('generate_metadata_table', $data)
 			.call('generate_comment_widget').'
 		</div>
@@ -587,7 +587,9 @@ function generate_output_field_download($data)
 }
 
 // static content for resource viewer
-$CSS .= <<<EOT
+function css_view() {
+	global $CONF;
+	return <<<EOT
 .rf_resource {
 	margin-bottom: 12px;
 }
@@ -618,7 +620,7 @@ $CSS .= <<<EOT
 #rf_preview.rf_message_inserted iframe {
 	margin-top: -{$CONF['element_size']['preview_height']}px;
 }
-#rf_preview.rf_message_inserted .message {
+#rf_preview.rf_message_inserted .rf_message {
 	height: {$CONF['element_size']['preview_height']}px;
 	display: block;
 }
@@ -640,9 +642,15 @@ $CSS .= <<<EOT
 	color: {$CONF['theme']['text2']};
 	padding-right: 12px;
 }
+.rf_clearer {
+	clear: both;
+}
 EOT;
+}
 
-$JS .= <<<EOT
+function javascript_view()
+{
+	return <<<EOT
 function filter(){
 	var filter = $("#rf_filter").val();
  	if(filter == ""){
@@ -661,7 +669,7 @@ function preview_fallback() {
 
 window.setTimeout('preview_fallback()', 10000);
 EOT;
-
+}
 
 /***************************
    Resource Manager Module
@@ -740,7 +748,7 @@ function page_resource_manager()
 	$BODY .= '<input type="checkbox" name="overwrite" />Overwrite existing file<br>';
 	$BODY .= '</form>';
 
-	$BODY .= '</div></div>';
+	$BODY .= '</div>';
 	call('render_template');
 }
 
@@ -878,7 +886,6 @@ function generate_input_field_license($data)
 
 	return '<label>License</label><select name="license" autocomplete="off">'.$license_options.'</select>';
 }
-
 
 function post_reorder_resources()
 {
@@ -1024,10 +1031,11 @@ function post_delete_resource()
 	header('Location:'.$CONF['script_url'].'?page=resource_manager');
 }
 
-
-
 // static content for resource manager
-$CSS .= <<<EOT
+function css_resource_manager()
+{
+	global $CONF;
+	return <<<EOT
 #rf_page_resource_manager table {
 	margin-left: 20px;
 }
@@ -1056,14 +1064,14 @@ tbody tr:last-child > td > .rf_down {
 .rf_up, .rf_down {
 	text-decoration: none;
 }
-.rf_manageable label {
+#rf_page_edit label {
 	display: inline-block;
 	color: {$CONF['theme']['text2']};
 	text-align:right;
 	width: 100px;
 	padding-right:10px;
 }
-.rf_manageable > input, .rf_manageable > textarea, .rf_manageable > select {
+.rf_manageable  > input, .rf_manageable > textarea, .rf_manageable > select {
 	width: {$CONF['element_size']['manager_width']}px;
 	vertical-align: middle;
 }
@@ -1080,8 +1088,11 @@ tbody tr:last-child > td > .rf_down {
 	display: none;
 }
 EOT;
+}
 
-$JS .= <<<EOT
+function javascript_resource_manager()
+{
+return <<<EOT
 $(document).ready(function() {
 	$('.rf_up').click(function() {
 		var item = $(this).parent().parent();
@@ -1120,7 +1131,7 @@ function post_delete_form(filename) {
 	return false;
 }
 EOT;
-
+}
 
 /*********************
    RSS Export Module
@@ -1130,7 +1141,7 @@ EOT;
 function page_rss() {
 	global $CONF, $DATA;
         
-//	header('Content-type: application/rss+xml');
+	header('Content-type: application/rss+xml');
 
 	print 
 '<?xml version="1.0" encoding="utf-8" ?>
@@ -1202,7 +1213,7 @@ function page_rdf() {
 	else
 		$resource_list = call('get_resource_list');
 
-//	header("Content-type: application/rdf+xml");
+	header("Content-type: application/rdf+xml");
 	print 
 '<?xml version="1.0" encoding="UTF-8"?>
 <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:bibo="http://purl.org/ontology/bibo/" xmlns:foaf="http://xmlns.com/foaf/0.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dct="http://purl.org/dc/terms/">
@@ -1487,8 +1498,8 @@ function generate_toolbar($toolbar)
 
 	$html ='<ul class="rf_toolbar_'.$toolbar.'">';
 
-	foreach($CONF['toolbars'][$toolbar] as $tool)
-		$html .= '<li>'.call('generate_toolbar_item_'.$toolbar.'_'.$tool).'</li>';
+	foreach($CONF['toolbar'][$toolbar] as $tool)
+		$html .= '<li>'.call('generate_toolbar_item_'.$tool).'</li>';
 
 	return $html .= '</ul>';
 }
