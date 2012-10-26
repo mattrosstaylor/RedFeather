@@ -9,7 +9,7 @@ $CONF['tagcloud_maxsize'] = 72;
 
 
 $CSS .= <<<EOT
-.keyword:hover {
+.rf_keyword:hover {
 	text-decoration: underline;
 }
 EOT;
@@ -25,7 +25,7 @@ function generate_output_field_keywords($data)
 		$html .= '<tr><td>Keyword' .((sizeof($keywords)>1) ? 's': '').':</td><td>';
 		// loop through each keyword
 		for ($i = 0; $i < sizeof($keywords); $i++)
-			$html .= '<span class="keyword">'._E_($keywords[$i]).'</span>'.($i < sizeof($keywords)-1 ? ', ' : '');
+			$html .= '<span class="rf_keyword">'._E_($keywords[$i]).'</span>'.($i < sizeof($keywords)-1 ? ', ' : '');
 		$html .= '</td></tr>';
 	}
 
@@ -36,7 +36,7 @@ function generate_output_field_keywords($data)
 function generate_input_field_keywords($data)
 {
 	return '<label>Keywords</label>'.call('generate_multifield_input_widget', array($data,'keywords')).'
-		<div class="new_multifield" id="new_keywords">
+		<div id="rf_new_keywords" class="rf_new_multifield">
 			'._E_('<input name="keywords[]" autocomplete="off" />').'
 		</div>';
 }

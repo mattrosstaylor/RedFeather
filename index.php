@@ -1,5 +1,4 @@
-<?php
-ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ERROR | E_PARSE);
+<?php ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ERROR | E_PARSE);
 
 // global variable for configuration
 $CONF = array(); 
@@ -58,7 +57,6 @@ $CONF['fields'] = array(
 $CONF['toolbars'] = array(
 	'footer' => array('credit', 'resource_manager'),
 	'browse' => array('search', 'rss', 'rdf'),
-	'resource' => array('metadata', 'comments'),
 	'resource_manager' => array()
 );
 
@@ -114,9 +112,9 @@ $FUNCTION_OVERRIDE = array(
 );
 
 
-/*****************************
-   Base pages for RedFeather
- *****************************/
+/**************
+   Base pages 
+ **************/
 
 // render using template
 function render_template()
@@ -185,7 +183,7 @@ body {
 	line-height: 1.15;
 	text-align: center;
 }
-.center {
+.rf_center {
 	width: {$page_width}px;
 	margin: auto;
 	text-align: left;
@@ -209,48 +207,48 @@ a:link, a:visited {
 a:hover, a:active {
 	text-decoration: underline;
 }
-#header {
+#rf_header {
 	background: {$CONF['theme']['bannercolor']};
 	padding: 12px;
 	border-bottom: 1px solid {$CONF['theme']['linkcolor']};
 }
-#header h1 {
+#rf_header h1 {
 	font-size: 28px;
 	margin-bottom: 0;
 }
-.#header h1 > a {
+#rf_header h1 > a {
 	text-decoration: none;
 }
-#header h2 {
+#rf_header h2 {
 	font-size: 14px;
 	font-style: italic;
 	color: {$CONF['theme']['text1']};
 }
-#footer {
+#rf_footer {
 	padding: 6px; 
 	background: {$CONF['theme']['bannercolor']};
 	border-top: 1px solid {$CONF['theme']['linkcolor']};
 	border-bottom: 1px solid {$CONF['theme']['linkcolor']};
 }
-.toolbar_footer > li {
+.rf_toolbar_footer > li {
 	display: inline;
 	padding: 0 5px;
 	border-right: 1px solid {$CONF['theme']['text1']};
 }
-.toolbar_footer > li:first-child {
+.rf_toolbar_footer > li:first-child {
 	padding-left: 0;
 }
-.toolbar_footer > li:last-child {
+.rf_toolbar_footer > li:last-child {
 	padding-right:0;
 	border-right: 0;
 }
 .rf_content {
 	padding: 6px 0 6px 0;
 }
-.clearer {
+.rf_clearer {
 	clear: both;
 }
-#error_list {
+#rf_error_list {
 	list-style: square inside;
 	padding: 7px 0;
 }
@@ -261,7 +259,7 @@ EOT;
 	
 	if (count($messages) > 0)
 	{
-		$message_html .= '<ul id="error_list" class="center">';
+		$message_html .= '<ul id="rf_error_list" class="rf_center">';
 		foreach ($messages as $m)
 			$message_html .= '<li>'.$m.'</li>';
 		$message_html .= '</ul>';
@@ -279,7 +277,7 @@ EOT;
 		</head>
 		<body>
 			'.$message_html.'
-			<div id="header"><div class="center">
+			<div id="rf_header"><div class="rf_center">
 				<h1><a href="'.$CONF['script_filename'].'">
 					'.$CONF['repository_name'].'
 				</a></h1>';
@@ -291,14 +289,13 @@ EOT;
 	print '
 				<h2>'.$CONF['repository_tagline'].'</h2>
 			</div></div>
-			<div class="center">
+			<div class="rf_center">
 			'.$BODY.'
 			</div>
-			<div id="footer">
-				<div class="center">'.call('generate_toolbar','footer').'</div>
+			<div id="rf_footer">
+				<div class="rf_center">'.call('generate_toolbar','footer').'</div>
 			</div>
 		</html>';
-
 }
 
 // toolbar item for footer
@@ -370,16 +367,15 @@ function fourohfour()
 {
 	global $BODY, $TITLE;
 	$TITLE = '404 - '.$TITLE;
-	$BODY .= '<div id="rf_fourohone" class="rf_content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
+	$BODY .= '<div id="rf_fourohfour" class="rf_content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
 	header('Status: 404 Not Found');	
 	call('render_template');
 }
-
  
 
-/**************************
-   Browse/Resource Module
-***************************/
+/***********************
+   Browse/View Module
+************************/
 
 // Browse page for RedFeather.
 // Lists all the resources that have been annotated and provides a facility to search.
@@ -396,7 +392,7 @@ function page_browse()
 		// render the resource using the "generate_metadata_table" function
 		$url = $CONF['script_filename'].'?file='.rawurlencode($filename);
 		$BODY .= 
-			'<div class="resource">
+			'<div class="rf_resource">
 				<h1><a href="'.$url.'">'._EF_($data,'title').'</a></h1>
 				<p>'.nl2br(_EF_($data,'description')).'</p>
 				'.call('generate_metadata_table', $data).'
@@ -411,7 +407,7 @@ function page_browse()
 // toolbar item for browse page
 function generate_toolbar_item_browse_search()
 {
-	return 'Search these resources: <input id="filter" onkeyup="filter()"type="text" value="" />';
+	return 'Search these resources: <input id="rf_filter" onkeyup="filter()"type="text" value="" />';
 }
 
 // toolbar item for browse page
@@ -430,7 +426,7 @@ function generate_toolbar_item_browse_rdf()
 }
 
 // View the resource preview, metadata and social networking plugin
-function page_resource()
+function page_view()
 {
 	global $CONF, $DATA, $BODY, $TITLE;
 
@@ -450,41 +446,74 @@ function page_resource()
 	$TITLE = _EF_($data,'title').' - '.$TITLE;
 	$BODY .=
 		'<div id="rf_page_resource" class="rf_content">
-			<div id="preview">'.call('generate_preview', _F_($data,'filename')).'</div>
-			<div class="metadata">
-			'.call('generate_toolbar', 'resource').'
-			</div>
-			<div class="clearer"></div>
+			'.call('generate_resource', $data).'
 		</div>';
 
 	call('render_template');
 }
 
-// toolbar item for resource page
-function generate_toolbar_item_resource_metadata()
+// generates the resource itself
+function generate_resource($data)
 {
-	global $CONF, $DATA;
-	$data = $DATA[rawurldecode($_REQUEST['file'])];
-	
-	return '<h1>'._EF_($data,'title').'</h1>
-		<p>'._EF_($data,'description').'</p>
-		'.call('generate_metadata_table', $data);
+	return call('generate_preview', _F_($data,'filename')).'
+		<div id="rf_metadata">
+			<h1>'._EF_($data,'title').'</h1>
+			<p>'._EF_($data,'description').'</p>
+			'.call('generate_metadata_table', $data)
+			.call('generate_comment_widget').'
+		</div>
+		<div class="rf_clearer"></div>';
 }
 
-// toolbar item for resource page
-function generate_toolbar_item_resource_comments()
+/* Return the preview widget for a given resource at the dimensions specified.
+	If the resource is determined to be an image, it renders as a simple <img> element.
+	Otherwise, it will be rendered using the googledocs previewer.
+	Due to a bug in the googledocs API, the service can sometimes silently fail and return an empty iframe.
+	Since there is no way to detect this when it occurs, and is a fatal bug in terms of preview functionality, a workaround has been devised where an error message is hidden underneath the preview widget.  If the preview widget fails it will be visible through the empty iframe. */
+function generate_preview($filename)
 {
-	global $CONF, $DATA;
-	$data = $DATA[rawurldecode($_REQUEST['file'])];
+	global $CONF;
+	
+	$preview_html ='<div id="rf_preview">';
 
-	$this_url = $CONF['script_url'].'?file='._EF_($data,'filename');
-	return call('generate_comment_widget', $this_url);
+	$width = $CONF['element_size']['preview_width'];
+	$height = $CONF['element_size']['preview_height'];
+
+	// get absolute url for file
+	$file_url = call('get_file_link', $filename);
+
+	// attempt to determine the image dimensions of the resource
+	$image_size = call('get_image_size', $filename);
+	// if the function succeed, assume the resource is an image
+	if ($image_size)
+	{
+		// stretch the image to fit preview area, depending on aspect ratio
+		if ($image_size[0]/$image_size[1] < $width/$height)
+			$preview_html .= '<img src="'._E_($file_url).'" height="'.$height.'">';
+		else	
+			$preview_html .= '<img src="'._E_($file_url).'" width="'.$width.'">';
+	}
+	// if the function failed, attempt to render using googledocs previewer
+	else
+	{
+		// create error message in case the widget fails to load
+		$preview_html .= '
+			<div class="rf_message"><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>';
+	
+		// place the error message directly underneath the widget
+		$preview_html .= '<iframe src="http://docs.google.com/viewer?embedded=true&url='._E_(urlencode($file_url)).'"></iframe>';
+	}
+	return $preview_html .= '</div>';
 }
 
 // return the Facebook comment widget
 function generate_comment_widget($this_url)
 {
-	global $CONF;
+	global $CONF, $DATA;
+
+	// this can be changed to make it create the widget for the current page
+	$data = $DATA[rawurldecode($_REQUEST['file'])];
+	$this_url = $CONF['script_url'].'?file='._EF_($data,'filename');
 
 	return '
 		<div id="fb-root"></div>
@@ -500,52 +529,12 @@ function generate_comment_widget($this_url)
 		<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$CONF['element_size']['metadata_width'].'"></div>';
 }
 
-/* Return the preview widget for a given resource at the dimensions specified.
-	If the resource is determined to be an image, it renders as a simple <img> element.
-	Otherwise, it will be rendered using the googledocs previewer.
-	Due to a bug in the googledocs API, the service can sometimes silently fail and return an empty iframe.
-	Since there is no way to detect this when it occurs, and is a fatal bug in terms of preview functionality, a workaround has been devised where an error message is hidden underneath the preview widget.  If the preview widget fails it will be visible through the empty iframe. */
-function generate_preview($filename)
-{
-	global $CONF;
-	$width = $CONF['element_size']['preview_width'];
-	$height = $CONF['element_size']['preview_height'];
-
-	// get absolute url for file
-	$file_url = call('get_file_link', $filename);
-
-	// attempt to determine the image dimensions of the resource
-	$image_size = call('get_image_size', $filename);
-	// if the function succeed, assume the resource is an image
-	if ($image_size)
-	{
-		// stretch the image to fit preview area, depending on aspect ratio
-		if ($image_size[0]/$image_size[1] < $width/$height)
-			return '<img src="'._E_($file_url).'" height="'.$height.'">';
-		else	
-			return '<img src="'._E_($file_url).'" width="'.$width.'">';
-	}
-	// if the function failed, attempt to render using googledocs previewer
-	else
-	{
-		// create error message in case the widget fails to load
-		$error_fallback = '
-			<div class="message"><h1>Google docs viewer failed to initialise.</h1><p>This is due to a bug in the viewer which occurs when your Google session expires.</p><p>You can restore functionality by logging back into any Google service.</p></div>';
-	
-		// place the error message directly underneath the widget
-
-	//	return $error_fallback;
-		//return '<iframe src="http://docs.google.com/viewer?embedded=tru2e&url='._E_($file_url).'"></iframe>'.$error_fallback;
-		return $error_fallback.'<iframe src="http://docs.google.com/viewer?embedded=true&url='._E_(urlencode($file_url)).'"></iframe>';
-	}
-}
-
 // returns the metadata table for the resource data specified
 function generate_metadata_table($data)
 {
 	global $CONF;
 
-	$table = '<table class="metadata_table"><tbody>';
+	$table = '<table class="rf_metadata_table"><tbody>';
 	
 	//  fields
 	foreach ($CONF['fields'] as $fieldname)
@@ -599,55 +588,55 @@ function generate_output_field_download($data)
 
 // static content for resource viewer
 $CSS .= <<<EOT
-.resource {
+.rf_resource {
 	margin-bottom: 12px;
 }
-.toolbar_browse {
+.rf_toolbar_browse {
 	margin-bottom: 10px;
 }
-.toolbar_browse > li {
+.rf_toolbar_browse > li {
 	padding-right: 10px;
 	display: inline-block;
 }
-.toolbar_browse > li > a > img {
+.rf_toolbar_browse > li > a > img {
 	vertical-align: text-bottom;
 }
-#preview {
+#rf_preview {
 	width: {$CONF['element_size']['preview_width']}px;
 	text-align: center;
 	float: left;
 }
-#preview iframe {
+#rf_preview iframe {
 	width: {$CONF['element_size']['preview_width']}px;
 	height: {$CONF['element_size']['preview_height']}px;
 	display: block;
 }
-#preview .message {
+#rf_preview .rf_message {
 	text-align: justify;
 	display: none;
 }
-#preview.message_inserted iframe {
+#rf_preview.rf_message_inserted iframe {
 	margin-top: -{$CONF['element_size']['preview_height']}px;
 }
-#preview.message_inserted .message {
+#rf_preview.rf_message_inserted .message {
 	height: {$CONF['element_size']['preview_height']}px;
 	display: block;
 }
-.metadata {
+#rf_metadata {
 	width: {$CONF['element_size']['metadata_width']}px;
 	float: right;
 	margin-left: {$CONF['element_size']['metadata_gap']}px;
 	word-wrap: break-word;
 }
-.metadata_table {
+.rf_metadata_table {
 	margin-bottom: 6px;
 	margin-left: 6px;
 	font-size: 12px;
 }
-.metadata_table tr>:last-child {
+.rf_metadata_table tr>:last-child {
 	word-break: break-all;
 }
-.metadata_table tr>:first-child {
+.rf_metadata_table tr>:first-child {
 	color: {$CONF['theme']['text2']};
 	padding-right: 12px;
 }
@@ -655,19 +644,19 @@ EOT;
 
 $JS .= <<<EOT
 function filter(){
-	var filter = $("#filter").val();
+	var filter = $("#rf_filter").val();
  	if(filter == ""){
-		$(".resource").show();  
+		$(".rf_resource").show();  
 		return;
 	}
-	$(".resource").hide();
-	$(".resource:contains("+$("#filter").val()+")").show();
+	$(".rf_resource").hide();
+	$(".rf_resource:contains("+$("#rf_filter").val()+")").show();
 }
 
 function preview_fallback() {
-	var d = document.getElementById('preview');
+	var d = document.getElementById('rf_preview');
 	if (d != null)
-		d.className = d.className + ' message_inserted';
+		d.className = d.className + ' rf_message_inserted';
 }
 
 window.setTimeout('preview_fallback()', 10000);
@@ -696,10 +685,10 @@ function page_resource_manager()
 	foreach (call('get_resource_list') as $filename)
 	{
 		$data = $DATA[$filename];
-		$BODY .= '<tr class="sortable">';
-		$BODY .= '<td class="number">'.$num++.'.</td>';
+		$BODY .= '<tr class="rf_sortable">';
+		$BODY .= '<td class="rf_number">'.$num++.'.</td>';
 		$BODY .= '<td>'._EF_($data, 'title').'</td>';
-		$BODY .= '<td class="updown"><a href="#" class="up">&uarr;</a><a href="#" class="down">&darr;</a></td>';
+		$BODY .= '<td class="rf_updown"><a href="#" class="rf_up">&uarr;</a><a href="#" class="rf_down">&darr;</a></td>';
 		$BODY .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
 		$BODY .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">edit</a></td>';
 		$BODY .= '<td><a href="'.$CONF['script_filename'].'?file='.rawurlencode($filename).'">view</a></td>';
@@ -739,7 +728,7 @@ function page_resource_manager()
 	}
 
 	// hidden form for deletion
-	$BODY .= '<form id="delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete_resource"/><input id="delete_file_field" type="hidden" name="filename"></form>';
+	$BODY .= '<form id="rf_delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete_resource"/><input id="rf_delete_file_field" type="hidden" name="filename"></form>';
 	
 
 	// new deposit box
@@ -787,7 +776,7 @@ function page_edit()
 
 	$BODY .= '<div id="rf_page_edit" class="rf_content">';
 	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
-	$BODY .= '<div class="manageable">'.call('generate_manageable_item', $data).'</div>';
+	$BODY .= '<div class="rf_manageable">'.call('generate_manageable_item', $data).'</div>';
 	$BODY .= '<input type="hidden" name="ACTION" value="save_resource">';
 	$BODY .= '<input type="submit" value="Save"/>';
 	$BODY .= '</form>';
@@ -808,7 +797,7 @@ function generate_manageable_item($data)
 		
 	// optional fields
 	foreach ($CONF['fields'] as $fieldname)
-		$item_html .= call_optional("generate_input_field_$fieldname", $data).'<div class="end_field"></div>';
+		$item_html .= call_optional("generate_input_field_$fieldname", $data).'<div class="rf_end_field"></div>';
 
 	return $item_html;
 }
@@ -819,7 +808,7 @@ function generate_multifield_input_widget($params)
 	$data = $params[0];
 	$fieldname = $params[1];
 	
-	$html = '<div class="multifield multifield_'.$fieldname.'" id="'.$fieldname.'">';
+	$html = '<div id="rf_'.$fieldname.'" class="rf_multifield rf_multifield_'.$fieldname.'">';
 
 	$field = _F_($data,$fieldname);
 	// check if there are entires currently set for this resource
@@ -833,7 +822,7 @@ function generate_multifield_input_widget($params)
 			</div>';
 		}
 	// add the new item button
-	$html .= '<a id="add'.$fieldname.'" href="#" onclick="javascript:multifield_add(\''.$fieldname.'\');return false;">add</a>';
+	$html .= '<a id="rf_add'.$fieldname.'" href="#" onclick="javascript:multifield_add(\''.$fieldname.'\');return false;">add</a>';
 	$html .= '</div>';
 	return $html;
 }
@@ -854,7 +843,7 @@ function generate_input_field_description($data)
 function generate_input_field_creators($data)
 {
 	return '<label>Creators</label>'.call('generate_multifield_input_widget', array($data,'creators')).'
-		<div class="new_multifield" id="new_creators">
+		<div id="rf_new_creators" class="rf_new_multifield">
 			'._E_('<input name="creators[]" placeholder="name" autocomplete="off" /><input name="emails[]" placeholder="email" autocomplete="off" />').'
 		</div>';
 }
@@ -1048,82 +1037,81 @@ $CSS .= <<<EOT
 #rf_page_resource_manager table td {
 	padding: 0 15px 0 0;
 }
-tbody tr:first-child > td > .up { 
+tbody tr:first-child > td > .rf_up { 
 	visibility: hidden;
 }
-tbody tr:last-child > td > .down { 
+tbody tr:last-child > td > .rf_down { 
 	visibility: hidden;
 }
-.end_field {
+.rf_end_field {
 	margin-bottom: 10px;
 }
-.number {
+.rf_number {
 	color: {$CONF['theme']['text2']};
 }
-.updown {
+.rf_updown {
 	font-size: 20px;
 	font-weight: bold;
 }
-.manageable label {
+.rf_manageable label {
 	display: inline-block;
 	color: {$CONF['theme']['text2']};
 	text-align:right;
 	width: 100px;
 	padding-right:10px;
 }
-.manageable > input, .manageable > textarea, .manageable > select {
+.rf_manageable > input, .rf_manageable > textarea, .rf_manageable > select {
 	width: {$CONF['element_size']['manager_width']}px;
 	vertical-align: middle;
 }
-.manageable input, .manageable textarea, .manageable select {
+.rf_manageable input, .rf_manageable textarea, .rf_manageable select {
 	font: inherit;
 	border: solid 1px {$CONF['theme']['bannercolor']};
 }
-
-.multifield {
+.rf_multifield {
 	display: inline-block;
 	width: {$CONF['element_size']['manager_width']}px;
 	vertical-align: middle;
 }
-.new_multifield {
+.rf_new_multifield {
 	display: none;
 }
 EOT;
 
 $JS .= <<<EOT
 $(document).ready(function() {
-	$('.up').click(function() {
+	$('.rf_up').click(function() {
 		var item = $(this).parent().parent();
-		var other = item.prev('.sortable');
+		var other = item.prev('.rf_sortable');
 		if (other.html() == null) return false;
 		item.detach().insertBefore(other);
-		var this_num = item.find('.number').html();
-		item.find('.number').html(other.find('.number').html());
-		other.find('.number').html(this_num);
+		var this_num = item.find('.rf_number').html();
+		item.find('.rf_number').html(other.find('.rf_number').html());
+		other.find('.rf_number').html(this_num);
 		return false;
 	});
-	$('.down').click(function() {
+	$('.rf_down').click(function() {
 		var item = $(this).parent().parent();
-		var other = item.next('.sortable');
+		var other = item.next('.rf_sortable');
 		if (other.html() == null) return false;
 		item.detach().insertAfter(other);
-		var this_num = item.find('.number').html();
-		item.find('.number').html(other.find('.number').html());
-		other.find('.number').html(this_num);
+		var this_num = item.find('.rf_number').html();
+		item.find('.rf_number').html(other.find('.rf_number').html());
+		other.find('.rf_number').html(this_num);
 		return false;
 	});
 });
 function multifield_add(field) {
-	var multifield = $("#"+field);
-	var add_link = $("#add"+field);
-	var new_item = $('#new_'+field).text();
+	var multifield = $("#rf_"+field);
+	var add_link = $("#rf_add"+field);
+	var new_item = $('#rf_new_'+field).text();
 	multifield.append('<div>'+new_item+'<a href="#" onclick="javascript:$(this).parent().remove();return false;">remove</a></div>');
 	add_link.remove().appendTo(multifield);
 }
 function post_delete_form(filename) {
 	if (confirm(filename +"\\nDelete this file?")) {
-		$("#delete_file_field").val(filename);
-		$("#delete_file").submit();
+		$("#rf_delete_file_field").val(filename);
+		$("#rf_delete_file").submit();
 		return true;
 	}
 	return false;
@@ -1322,7 +1310,7 @@ function page_creators() {
 	global $CONF, $BODY, $TITLE;
 
 	$TITLE = 'Contributors - '.$TITLE;
-	$BODY .= '<div id="content"><h1>Contributors</h1><ul>';
+	$BODY .= '<div id="rf_page_creators" class="rf_content"><h1>Contributors</h1><ul>';
 	foreach (get_unique_creators() as $creator)
 	{
 		$BODY .= '<li><a href="#'._E_($creator).'">'._E_($creator).'</a></li>';
@@ -1494,7 +1482,7 @@ function generate_toolbar($toolbar)
 {
 	global $CONF;
 
-	$html ='<ul class="toolbar_'.$toolbar.'">';
+	$html ='<ul class="rf_toolbar_'.$toolbar.'">';
 
 	foreach($CONF['toolbars'][$toolbar] as $tool)
 		$html .= '<li>'.call('generate_toolbar_item_'.$toolbar.'_'.$tool).'</li>';
@@ -1581,7 +1569,7 @@ call('load_data');
 if(isset($_REQUEST['page']))
 	call('page_'.$_REQUEST['page']);
 else if (isset($_REQUEST['file']))
-	call('page_resource');
+	call('page_view');
 else
 	call($CONF['default_page']);
 
