@@ -97,16 +97,6 @@ $CONF['base_url'] = 'http://'.$_SERVER['HTTP_HOST'].substr($_SERVER['SCRIPT_NAME
 // The full url of the RedFeather script
 $CONF['script_url'] = $CONF['base_url'].$CONF['script_filename'];
 
-// global variable to allow function overriding
-$FUNCTION_OVERRIDE = array(
-//	'page_browse'=>'page_browse_new',
-);
-
-
-/*********************
-   Utility Functions
- *********************/
-
 // global variable to store resource data
 $DATA = array();
 // global variable for page title
@@ -118,265 +108,24 @@ $CSS = '';
 // global variable to buffer Javascript
 $JS = '';
 
-// Calls a function within RedFeather to provide a simple plugin architecture.
-// To maintain compatibility with PHP 4.0, functions should only take a single parameter - which is passed through to the target.
-// When a named function is called, the FUNCTION_OVERRIDE is first checked to see if an override function has been assigned.
-// If it has, that function is called, otherwise it will call the function directly.
-function call($function, $param=null)
-{
-	global $FUNCTION_OVERRIDE;
-	if (isset($FUNCTION_OVERRIDE[$function]))
-		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
-	else if (function_exists($function))
-		return call_user_func($function, $param);
-	else call_optional('fourohfour');
-}
-
-// as above but doesn't give an error if a non-existent function is called
-function call_optional($function, $param=null)
-{
-	global $FUNCTION_OVERRIDE;
-	if (isset($FUNCTION_OVERRIDE[$function]))
-		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
-	else if (function_exists($function))
-		return call_user_func($function, $param);
-	else return;
-}
-
-// function to check a user is authenticated - will block actions otherwise
-function authenticate()
-{
-	session_set_cookie_params(0, $CONF['script_url']);
-	session_start();
-
-	if (isset($_SESSION['current_user']))
-		return;
-	else
-		call_optional('fourohone');
-}
-
-// page to receive POST requests
-function page_post() {
-	global $CONF, $DATA;
-	// check request type
-	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
-		header('HTTP/1.1 405 Method Not Allowed');
-		return;
-	}
-	
-	// ensure that the user is logged in
-	call('authenticate');
-
-	// attempt to call the post subroutine	
-	if (isset($_POST['ACTION']))
-	{
-		// unset the ACTION value in the post array
-		$action = $_POST['ACTION'];
-		unset($_POST['ACTION']);
-		call('post_'.$action);
-	}
-	else
-		header('HTTP/1.1 400 Bad Request');
-}
-
-// function to provide simple authentication functionality
-function authenticate_login()
-{
-	session_set_cookie_params(0, $CONF['script_url']);
-	session_start();
-
-	global $CONF, $BODY;
-
-	// check the session for an authenticated user and return to the parent function if valid.
-	if(isset($_SESSION['current_user']))
-		return;
-
-	// If this is a post requesting to log in, check username and password against authorised credentials.
-	if (isset($_POST['username']) && isset($_POST['password']) && isset($CONF['credentials'][$_POST['username']]))
-	{
-		if ($CONF['credentials'][$_POST['username']] == $_POST['password'] || $CONF['credentials'][$_POST['username']] == md5($_POST['password'])) 
-		{
-			$_SESSION['current_user']=$_POST['username'];
-			return;
-		}
-	}
-	
-	// if the user is unauthenticated and not making a signing post, render login screen.	
-	$BODY .= '<div id="rf_authenticate_login" class="rf_content"><h1>Log in</h1>';
-	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
-			Username <input type="text" name="username" />
-			Password <input type="password" name="password" />
-			<input type="submit" value="Login" />
-		</form></div>';
-
-	call('render_template');
-	exit;
-}
+// global variable to allow function overriding
+$FUNCTION_OVERRIDE = array(
+//	'page_browse'=>'page_browse_new',
+);
 
 
-// generates a named toolbar
-function generate_toolbar($toolbar)
-{
-	global $CONF;
-
-	$html ='<ul class="toolbar_'.$toolbar.'">';
-
-	foreach($CONF['toolbars'][$toolbar] as $tool)
-		$html .= '<li>'.call('generate_toolbar_item_'.$toolbar.'_'.$tool).'</li>';
-
-	return $html .= '</ul>';
-}
-
-// function to get a list of all the complete resources (i.e. with matching file/metadata)
-function get_resource_list()
-{
-	global $DATA;
-	$list = array();
-	$files = call('get_file_list');
-
-	foreach ($DATA as $filename => $data)
-		if (in_array($filename, $files)) array_push($list, $filename);
-	return $list;
-}
-
-function add_message($message)
-{
-	if (!isset($_SESSION['messages']))
-		$_SESSION['messages'] = array();
-	$_SESSION['messages'][] = $message;
-}
-
-function get_messages()
-{
-	if (!isset($_SESSION['messages']))
-		return array();
-	$messages = $_SESSION['messages'];
-	unset($_SESSION['messages']);
-	return $messages;
-}
-
-/***************************************************
-   Helper functions - these cannot be overwritten
- ***************************************************/
-
-// helper function to html entity encode a string
-function _E_($s)
-{
-	return htmlentities($s);
-}
-
-// helper function to get a field
-function _F_($data, $field)
-{
-	if (isset($data[$field]))
-		return $data[$field];
-	else
-		return '';
-}
-
-// helper function to get a field html entity encoded
-function _EF_($data, $field)
-{
-	return _E_(_F_($data, $field));
-}
-
-
-/**************
-   Base pages
- **************/
+/*****************************
+   Base pages for RedFeather
+ *****************************/
 
 // render using template
 function render_template()
 {
 	global $CONF, $BODY, $TITLE, $CSS, $JS;
 
-
-	$message_html = '';
-	$messages = call('get_messages');
-	
-	if (count($messages) > 0)
-	{
-		$message_html .= '<ul id="error_list" class="center">';
-		foreach ($messages as $m)
-			$message_html .= '<li>'.$m.'</li>';
-		$message_html .= '</ul>';
-	}
-
-	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
-	print 
-		'<!DOCTYPE HTML>
-		<html><head>
-			<title>'.$TITLE.'</title>
-			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-			<script src="'.$CONF['script_filename'].'?page=javascript" type="text/javascript"></script>
-			<link rel="stylesheet" type="text/css" href="'.$CONF['script_filename'].'?page=css"/>
-		</head>
-		<body>
-			'.$message_html.'
-			<div id="header"><div class="center">
-				<h1><a href="'.$CONF['script_filename'].'">
-					'.$CONF['repository_name'].'
-				</a></h1>';
-
-	// add the optional 'return link' as documented in the RedFeather configuration section
-	if (isset($CONF['return_link']))
-		print '<a style="float:right;" href="'.$CONF['return_link']['href'].'">'.$CONF['return_link']['text'].'</a>';
-
-	print '
-				<h2>'.$CONF['repository_tagline'].'</h2>
-			</div></div>
-			<div class="center">
-			'.$BODY.'
-			</div>
-			<div id="footer">
-				<div class="center">'.call('generate_toolbar','footer').'</div>
-			</div>
-		</html>';
-
-}
-
-// toolbar item for footer
-function generate_toolbar_item_footer_credit()
-{
-	return 'Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a>'; 
-}
-
-// toolbar item for footer
-function generate_toolbar_item_footer_resource_manager()
-{
-	global $CONF;
-	return '<a href="'.$CONF['script_filename'].'?page=resource_manager">Resource Manager</a>';
-}
-
-// output a 401 page
-function fourohone()
-{
-	global $BODY, $TITLE;
-	$TITLE = '401 - '.$TITLE;
-	$BODY .= '<div id="rf_fourohone" class="rf_content"><h1>401</h1><p>You are not authenticated.</p></div>';
-	header('Status: 401 Not Found');	
-	call('render_template');
-	exit;
-}
-
-// output a 404 page
-function fourohfour()
-{
-	global $BODY, $TITLE;
-	$TITLE = '404 - '.$TITLE;
-	$BODY .= '<div id="rf_fourohone" class="rf_content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
-	header('Status: 404 Not Found');	
-	call('render_template');
-}
-
-// Public function for CSS
-function page_css()
-{
-	global $CONF, $CSS;
 	$page_width = $CONF['element_size']['preview_width']+$CONF['element_size']['metadata_gap']+$CONF['element_size']['metadata_width'];
 
-	// base CSS
-	$base_css = <<<EOT
+	$template_css = <<<EOT
 /* http://meyerweb.com/eric/tools/css/reset/ 
    v2.0 | 20110126
    License: none (public domain)
@@ -506,8 +255,71 @@ a:hover, a:active {
 	padding: 7px 0;
 }
 EOT;
+
+	$message_html = '';
+	$messages = call('get_messages');
+	
+	if (count($messages) > 0)
+	{
+		$message_html .= '<ul id="error_list" class="center">';
+		foreach ($messages as $m)
+			$message_html .= '<li>'.$m.'</li>';
+		$message_html .= '</ul>';
+	}
+
+	// render the top part of the html, including title, jquery, stylesheet, local javascript and page header
+	print 
+		'<!DOCTYPE HTML>
+		<html><head>
+			<title>'.$TITLE.'</title>
+			<style type="text/css">'.$template_css.'</style>
+			<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+			<script src="'.$CONF['script_filename'].'?page=javascript" type="text/javascript"></script>
+			<link rel="stylesheet" type="text/css" href="'.$CONF['script_filename'].'?page=css"/>
+		</head>
+		<body>
+			'.$message_html.'
+			<div id="header"><div class="center">
+				<h1><a href="'.$CONF['script_filename'].'">
+					'.$CONF['repository_name'].'
+				</a></h1>';
+
+	// add the optional 'return link' as documented in the RedFeather configuration section
+	if (isset($CONF['return_link']))
+		print '<a style="float:right;" href="'.$CONF['return_link']['href'].'">'.$CONF['return_link']['text'].'</a>';
+
+	print '
+				<h2>'.$CONF['repository_tagline'].'</h2>
+			</div></div>
+			<div class="center">
+			'.$BODY.'
+			</div>
+			<div id="footer">
+				<div class="center">'.call('generate_toolbar','footer').'</div>
+			</div>
+		</html>';
+
+}
+
+// toolbar item for footer
+function generate_toolbar_item_footer_credit()
+{
+	return 'Powered by <a href="http://redfeather.ecs.soton.ac.uk">RedFeather</a>'; 
+}
+
+// toolbar item for footer
+function generate_toolbar_item_footer_resource_manager()
+{
+	global $CONF;
+	return '<a href="'.$CONF['script_filename'].'?page=resource_manager">Resource Manager</a>';
+}
+
+// Public function for CSS
+function page_css()
+{
+	global $CONF, $CSS;
 	header('Content-type: text/css');
-	print $base_css.$CSS;
+	print $CSS;
 }
 
 // Public function for getting js
@@ -517,153 +329,57 @@ function page_javascript()
 	header('Content-type: text/javascript');
 	print $JS;
 }
- 
 
-/****************************************************
-   Functions to interact with the local file system
-*****************************************************/
-// returns a list of all files within the RedFeather resource scope (i.e. that can be annotated)
-function get_file_list()
-{
-	global $CONF;
-	$file_list = array();
-	$dir = "./";
-	foreach (scandir($dir) as $file)
-	{
-		// exclude directories, hidden files, the RedFeather file and the metadata file
-		if( is_dir($dir.$file) || !call('check_file_allowed', $file)) continue;
-		array_push($file_list, $file);
+// page to receive POST requests
+function page_post() {
+	global $CONF, $DATA;
+	// check request type
+	if ($_SERVER['REQUEST_METHOD'] != 'POST') {
+		header('HTTP/1.1 405 Method Not Allowed');
+		return;
 	}
-	return $file_list;
-}
+	
+	// ensure that the user is logged in
+	call('authenticate');
 
-// checks whether a file is acceptable
-function check_file_allowed($filename)
-{
-	global $CONF;
-	if (preg_match("/^\./", $filename) || preg_match("/\.php/", $filename)  || $filename == $CONF['metadata_filename'])
-		return false;
+	// attempt to call the post subroutine	
+	if (isset($_POST['ACTION']))
+	{
+		// unset the ACTION value in the post array
+		$action = $_POST['ACTION'];
+		unset($_POST['ACTION']);
+		call('post_'.$action);
+	}
 	else
-		return true;
+		header('HTTP/1.1 400 Bad Request');
 }
 
-
-// returns a absolute hyperlink to a given file
-function get_file_link($filename)
+// output a 401 page
+function fourohone()
 {
-	global $CONF;
-	return $CONF['base_url'].rawurlencode($filename);
+	global $BODY, $TITLE;
+	$TITLE = '401 - '.$TITLE;
+	$BODY .= '<div id="rf_fourohone" class="rf_content"><h1>401</h1><p>You are not authenticated.</p></div>';
+	header('Status: 401 Not Found');	
+	call('render_template');
+	exit;
 }
 
-// returns the data a file was last edited
-function get_file_date($filename)
+// output a 404 page
+function fourohfour()
 {
-	return date ('d F Y H:i:s', filemtime($filename));
+	global $BODY, $TITLE;
+	$TITLE = '404 - '.$TITLE;
+	$BODY .= '<div id="rf_fourohone" class="rf_content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
+	header('Status: 404 Not Found');	
+	call('render_template');
 }
 
-// returns the image size information from a file (replicates the behaviour of the standard php function
-function get_image_size($filename)
-{
-	return getimagesize($filename);
-}
-
-// loads the resource metadata from the filesystem in the global variable $CONF
-function load_data()
-{
-	global $CONF, $DATA;
-	$DATA = unserialize(file_get_contents($CONF['metadata_filename']));
-	if(!is_array($DATA) )
-		$DATA= array();
-}
-// saves the resource metadata to the filesystem
-function save_data()
-{
-	global $CONF, $DATA;
-	// save the array as serialized PHP
-	$fh = fopen($CONF['metadata_filename'], 'w');
-	fwrite($fh,serialize($DATA));
-	fclose($fh);
-}
-
+ 
 
 /**************************
    Browse/Resource Module
 ***************************/
-
-$CSS .= <<<EOT
-.resource {
-	margin-bottom: 12px;
-}
-.toolbar_browse {
-	margin-bottom: 10px;
-}
-.toolbar_browse > li {
-	padding-right: 10px;
-	display: inline-block;
-}
-.toolbar_browse > li > a > img {
-	vertical-align: text-bottom;
-}
-#preview {
-	width: {$CONF['element_size']['preview_width']}px;
-	text-align: center;
-	float: left;
-}
-#preview iframe {
-	width: {$CONF['element_size']['preview_width']}px;
-	height: {$CONF['element_size']['preview_height']}px;
-	display: block;
-}
-#preview .message {
-	text-align: justify;
-	display: none;
-}
-#preview.message_inserted iframe {
-	margin-top: -{$CONF['element_size']['preview_height']}px;
-}
-#preview.message_inserted .message {
-	height: {$CONF['element_size']['preview_height']}px;
-	display: block;
-}
-.metadata {
-	width: {$CONF['element_size']['metadata_width']}px;
-	float: right;
-	margin-left: {$CONF['element_size']['metadata_gap']}px;
-	word-wrap: break-word;
-}
-.metadata_table {
-	margin-bottom: 6px;
-	margin-left: 6px;
-	font-size: 12px;
-}
-.metadata_table tr>:last-child {
-	word-break: break-all;
-}
-.metadata_table tr>:first-child {
-	color: {$CONF['theme']['text2']};
-	padding-right: 12px;
-}
-EOT;
-
-$JS .= <<<EOT
-function filter(){
-	var filter = $("#filter").val();
- 	if(filter == ""){
-		$(".resource").show();  
-		return;
-	}
-	$(".resource").hide();
-	$(".resource:contains("+$("#filter").val()+")").show();
-}
-
-function preview_fallback() {
-	var d = document.getElementById('preview');
-	if (d != null)
-		d.className = d.className + ' message_inserted';
-}
-
-window.setTimeout('preview_fallback()', 10000);
-EOT;
 
 // Browse page for RedFeather.
 // Lists all the resources that have been annotated and provides a facility to search.
@@ -881,102 +597,86 @@ function generate_output_field_download($data)
 	return '<tr><td>Download:</td><td><a target="_blank" href="'.call('get_file_link', _F_($data,'filename')).'">'._EF_($data, 'filename').'</a></td></tr>';
 }
 
-
-/***************************
-   Resource Manager Module
- ***************************/
-
+// static content for resource viewer
 $CSS .= <<<EOT
-#rf_page_resource_manager table {
-	margin-left: 20px;
-}
-#rf_page_resource_manager form {
+.resource {
 	margin-bottom: 12px;
 }
-#rf_page_resource_manager table td {
-	padding: 0 15px 0 0;
-}
-tbody tr:first-child > td > .up { 
-	visibility: hidden;
-}
-tbody tr:last-child > td > .down { 
-	visibility: hidden;
-}
-.end_field {
+.toolbar_browse {
 	margin-bottom: 10px;
 }
-.number {
-	color: {$CONF['theme']['text2']};
-}
-.updown {
-	font-size: 20px;
-	font-weight: bold;
-}
-.manageable label {
+.toolbar_browse > li {
+	padding-right: 10px;
 	display: inline-block;
-	color: {$CONF['theme']['text2']};
-	text-align:right;
-	width: 100px;
-	padding-right:10px;
 }
-.manageable > input, .manageable > textarea, .manageable > select {
-	width: {$CONF['element_size']['manager_width']}px;
-	vertical-align: middle;
+.toolbar_browse > li > a > img {
+	vertical-align: text-bottom;
 }
-.manageable input, .manageable textarea, .manageable select {
-	font: inherit;
-	border: solid 1px {$CONF['theme']['bannercolor']};
+#preview {
+	width: {$CONF['element_size']['preview_width']}px;
+	text-align: center;
+	float: left;
 }
-
-.multifield {
-	display: inline-block;
-	width: {$CONF['element_size']['manager_width']}px;
-	vertical-align: middle;
+#preview iframe {
+	width: {$CONF['element_size']['preview_width']}px;
+	height: {$CONF['element_size']['preview_height']}px;
+	display: block;
 }
-.new_multifield {
+#preview .message {
+	text-align: justify;
 	display: none;
+}
+#preview.message_inserted iframe {
+	margin-top: -{$CONF['element_size']['preview_height']}px;
+}
+#preview.message_inserted .message {
+	height: {$CONF['element_size']['preview_height']}px;
+	display: block;
+}
+.metadata {
+	width: {$CONF['element_size']['metadata_width']}px;
+	float: right;
+	margin-left: {$CONF['element_size']['metadata_gap']}px;
+	word-wrap: break-word;
+}
+.metadata_table {
+	margin-bottom: 6px;
+	margin-left: 6px;
+	font-size: 12px;
+}
+.metadata_table tr>:last-child {
+	word-break: break-all;
+}
+.metadata_table tr>:first-child {
+	color: {$CONF['theme']['text2']};
+	padding-right: 12px;
 }
 EOT;
 
 $JS .= <<<EOT
-$(document).ready(function() {
-	$('.up').click(function() {
-		var item = $(this).parent().parent();
-		var other = item.prev('.sortable');
-		if (other.html() == null) return false;
-		item.detach().insertBefore(other);
-		var this_num = item.find('.number').html();
-		item.find('.number').html(other.find('.number').html());
-		other.find('.number').html(this_num);
-		return false;
-	});
-	$('.down').click(function() {
-		var item = $(this).parent().parent();
-		var other = item.next('.sortable');
-		if (other.html() == null) return false;
-		item.detach().insertAfter(other);
-		var this_num = item.find('.number').html();
-		item.find('.number').html(other.find('.number').html());
-		other.find('.number').html(this_num);
-		return false;
-	});
-});
-function multifield_add(field) {
-	var multifield = $("#"+field);
-	var add_link = $("#add"+field);
-	var new_item = $('#new_'+field).text();
-	multifield.append('<div>'+new_item+'<a href="#" onclick="javascript:$(this).parent().remove();return false;">remove</a></div>');
-	add_link.remove().appendTo(multifield);
-}
-function post_delete_form(filename) {
-	if (confirm(filename +"\\nDelete this file?")) {
-		$("#delete_file_field").val(filename);
-		$("#delete_file").submit();
-		return true;
+function filter(){
+	var filter = $("#filter").val();
+ 	if(filter == ""){
+		$(".resource").show();  
+		return;
 	}
-	return false;
+	$(".resource").hide();
+	$(".resource:contains("+$("#filter").val()+")").show();
 }
+
+function preview_fallback() {
+	var d = document.getElementById('preview');
+	if (d != null)
+		d.className = d.className + ' message_inserted';
+}
+
+window.setTimeout('preview_fallback()', 10000);
 EOT;
+
+
+/***************************
+   Resource Manager Module
+ ***************************/
 
 function page_resource_manager()
 {
@@ -1039,7 +739,7 @@ function page_resource_manager()
 	}
 
 	// hidden form for deletion
-	$BODY .= '<form id="delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete"/><input id="delete_file_field" type="hidden" name="filename"></form>';
+	$BODY .= '<form id="delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete_resource"/><input id="delete_file_field" type="hidden" name="filename"></form>';
 	
 
 	// new deposit box
@@ -1054,6 +754,142 @@ function page_resource_manager()
 	$BODY .= '</div></div>';
 	call('render_template');
 }
+
+function page_edit()
+{
+	global $CONF, $DATA, $BODY, $TITLE;
+
+	call('authenticate_login');
+
+	$filename = '';	
+	$data = '';
+
+	// check that the file requested actually exists
+	if (isset($_REQUEST['file']))
+		$filename = rawurldecode($_REQUEST['file']);
+
+ 	if (isset($DATA[$filename]))
+		$data = $DATA[$filename];
+	else
+	{
+		// if this is a new file add it with the default metadata
+		if (in_array($filename, call('get_file_list')))
+		{
+			$data = $CONF['default_metadata'];
+			$data['filename'] = $filename;
+		}
+		else
+		{
+			call('fourohfour');
+			return;
+		}
+	}
+
+	$BODY .= '<div id="rf_page_edit" class="rf_content">';
+	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
+	$BODY .= '<div class="manageable">'.call('generate_manageable_item', $data).'</div>';
+	$BODY .= '<input type="hidden" name="ACTION" value="save_resource">';
+	$BODY .= '<input type="submit" value="Save"/>';
+	$BODY .= '</form>';
+	$BODY .= '</div>';
+	call('render_template');
+}
+
+
+// returns the html for a single item on the resource workflow
+function generate_manageable_item($data)
+{
+	global $CONF;
+
+	// render the basic fields
+	$item_html = '
+		<h1><a href="'._E_(call('get_file_link', _F_($data,'filename'))).'" target="_blank">'._EF_($data,'filename').'</a></h1>
+		<input type="hidden" name="filename" value="'._EF_($data,'filename').'" />';
+		
+	// optional fields
+	foreach ($CONF['fields'] as $fieldname)
+		$item_html .= call_optional("generate_input_field_$fieldname", $data).'<div class="end_field"></div>';
+
+	return $item_html;
+}
+
+// helper function for implementing multifields
+function generate_multifield_input_widget($params)
+{
+	$data = $params[0];
+	$fieldname = $params[1];
+	
+	$html = '<div class="multifield multifield_'.$fieldname.'" id="'.$fieldname.'">';
+
+	$field = _F_($data,$fieldname);
+	// check if there are entires currently set for this resource
+	if ($field)
+		// loop through the elements and create the table rows
+		for ($i = 0; $i < sizeof($field); $i++)
+		{
+		$html .= '<div>
+				'.call('generate_multifield_input_'.$fieldname, array($data, $i)).'
+				<a href="#" onclick="javascript:$(this).parent().remove();return false;">remove</a>
+			</div>';
+		}
+	// add the new item button
+	$html .= '<a id="add'.$fieldname.'" href="#" onclick="javascript:multifield_add(\''.$fieldname.'\');return false;">add</a>';
+	$html .= '</div>';
+	return $html;
+}
+
+// field definition for manageable item
+function generate_input_field_title($data)
+{
+	return '<label>Title</label><input name="title" value="'._EF_($data,'title').'" autocomplete="off" />';
+}
+
+// field definition for manageable item
+function generate_input_field_description($data)
+{
+	return '<label>Description</label><textarea name="description" autocomplete="off" rows="8">'._EF_($data,'description').'</textarea>';
+}
+
+// field definition for manageable item
+function generate_input_field_creators($data)
+{
+	return '<label>Creators</label>'.call('generate_multifield_input_widget', array($data,'creators')).'
+		<div class="new_multifield" id="new_creators">
+			'._E_('<input name="creators[]" placeholder="name" autocomplete="off" /><input name="emails[]" placeholder="email" autocomplete="off" />').'
+		</div>';
+}
+
+function generate_multifield_input_creators($params)
+{
+	$data = $params[0];
+	$i = $params[1];
+
+	$creators = _F_($data, 'creators');
+	$emails = _F_($data, 'emails');
+
+	return '<input name="creators[]" value="'._E_($creators[$i]).'" placeholder="name" autocomplete="off" /><input name="emails[]" value="'._E_($emails[$i]).'" placeholder="email" autocomplete="off" />';
+}
+
+// field definition for manageable item
+function generate_input_field_license($data)
+{
+	global $CONF;
+
+	// add license dropdown box
+	$license_options = '';
+	foreach ($CONF['licenses'] as $key => $value)	
+	{
+		if (_F_($data, 'license') == $key)
+			$selected = 'selected';
+		else
+			$selected = '';
+
+		$license_options .= '<option value="'.$key.'" '.$selected.' autocomplete="off">'.$value.'</option>';
+	}
+
+	return '<label>License</label><select name="license" autocomplete="off">'.$license_options.'</select>';
+}
+
 
 function post_reorder_resources()
 {
@@ -1149,7 +985,27 @@ function post_upload()
 	header('Location:'.$CONF['script_url'].'?page=edit&file='.rawurlencode($filename));
 }
 
-function post_delete()
+// public function to save data from the resource manager to the local file system
+function post_save_resource()
+{
+	global $CONF, $DATA;
+
+	// get the filename
+	$filename = $_POST['filename'];
+
+	// replace the data if it already exists, otherwise prepend it to the array as the top item
+	if (isset($DATA[$filename]))
+		$DATA[$filename] = $_POST;
+	else
+		$DATA = array_merge(array($filename => $_POST), $DATA);
+
+	call('save_data');
+
+	// redirect to the resource page
+	header('Location:'.$CONF['script_url'].'?file='.rawurlencode($filename));
+}
+
+function post_delete_resource()
 {
 	global $DATA;
 
@@ -1179,159 +1035,101 @@ function post_delete()
 	header('Location:'.$CONF['script_url'].'?page=resource_manager');
 }
 
-function page_edit()
-{
-	global $CONF, $DATA, $BODY, $TITLE;
 
-	call('authenticate_login');
 
-	$filename = '';	
-	$data = '';
+// static content for resource manager
+$CSS .= <<<EOT
+#rf_page_resource_manager table {
+	margin-left: 20px;
+}
+#rf_page_resource_manager form {
+	margin-bottom: 12px;
+}
+#rf_page_resource_manager table td {
+	padding: 0 15px 0 0;
+}
+tbody tr:first-child > td > .up { 
+	visibility: hidden;
+}
+tbody tr:last-child > td > .down { 
+	visibility: hidden;
+}
+.end_field {
+	margin-bottom: 10px;
+}
+.number {
+	color: {$CONF['theme']['text2']};
+}
+.updown {
+	font-size: 20px;
+	font-weight: bold;
+}
+.manageable label {
+	display: inline-block;
+	color: {$CONF['theme']['text2']};
+	text-align:right;
+	width: 100px;
+	padding-right:10px;
+}
+.manageable > input, .manageable > textarea, .manageable > select {
+	width: {$CONF['element_size']['manager_width']}px;
+	vertical-align: middle;
+}
+.manageable input, .manageable textarea, .manageable select {
+	font: inherit;
+	border: solid 1px {$CONF['theme']['bannercolor']};
+}
 
-	// check that the file requested actually exists
-	if (isset($_REQUEST['file']))
-		$filename = rawurldecode($_REQUEST['file']);
+.multifield {
+	display: inline-block;
+	width: {$CONF['element_size']['manager_width']}px;
+	vertical-align: middle;
+}
+.new_multifield {
+	display: none;
+}
+EOT;
 
- 	if (isset($DATA[$filename]))
-		$data = $DATA[$filename];
-	else
-	{
-		// if this is a new file add it with the default metadata
-		if (in_array($filename, call('get_file_list')))
-		{
-			$data = $CONF['default_metadata'];
-			$data['filename'] = $filename;
-		}
-		else
-		{
-			call('fourohfour');
-			return;
-		}
+$JS .= <<<EOT
+$(document).ready(function() {
+	$('.up').click(function() {
+		var item = $(this).parent().parent();
+		var other = item.prev('.sortable');
+		if (other.html() == null) return false;
+		item.detach().insertBefore(other);
+		var this_num = item.find('.number').html();
+		item.find('.number').html(other.find('.number').html());
+		other.find('.number').html(this_num);
+		return false;
+	});
+	$('.down').click(function() {
+		var item = $(this).parent().parent();
+		var other = item.next('.sortable');
+		if (other.html() == null) return false;
+		item.detach().insertAfter(other);
+		var this_num = item.find('.number').html();
+		item.find('.number').html(other.find('.number').html());
+		other.find('.number').html(this_num);
+		return false;
+	});
+});
+function multifield_add(field) {
+	var multifield = $("#"+field);
+	var add_link = $("#add"+field);
+	var new_item = $('#new_'+field).text();
+	multifield.append('<div>'+new_item+'<a href="#" onclick="javascript:$(this).parent().remove();return false;">remove</a></div>');
+	add_link.remove().appendTo(multifield);
+}
+function post_delete_form(filename) {
+	if (confirm(filename +"\\nDelete this file?")) {
+		$("#delete_file_field").val(filename);
+		$("#delete_file").submit();
+		return true;
 	}
-
-	$BODY .= '<div id="rf_page_edit" class="rf_content">';
-	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
-	$BODY .= '<div class="manageable">'.call('generate_manageable_item', $data).'</div>';
-	$BODY .= '<input type="hidden" name="ACTION" value="save_resource">';
-	$BODY .= '<input type="submit" value="Save"/>';
-	$BODY .= '</form>';
-	$BODY .= '</div>';
-	call('render_template');
+	return false;
 }
+EOT;
 
-// public function to save data from the resource manager to the local file system
-function post_save_resource()
-{
-	global $CONF, $DATA;
-
-	// get the filename
-	$filename = $_POST['filename'];
-
-	// replace the data if it already exists, otherwise prepend it to the array as the top item
-	if (isset($DATA[$filename]))
-		$DATA[$filename] = $_POST;
-	else
-		$DATA = array_merge(array($filename => $_POST), $DATA);
-
-	call('save_data');
-
-	// redirect to the resource page
-	header('Location:'.$CONF['script_url'].'?file='.rawurlencode($filename));
-}
-
-// returns the html for a single item on the resource workflow
-function generate_manageable_item($data)
-{
-	global $CONF;
-
-	// render the basic fields
-	$item_html = '
-		<h1><a href="'._E_(call('get_file_link', _F_($data,'filename'))).'" target="_blank">'._EF_($data,'filename').'</a></h1>
-		<input type="hidden" name="filename" value="'._EF_($data,'filename').'" />';
-		
-	// optional fields
-	foreach ($CONF['fields'] as $fieldname)
-		$item_html .= call_optional("generate_input_field_$fieldname", $data).'<div class="end_field"></div>';
-
-	return $item_html;
-}
-
-// helper function for implementing multifields
-function generate_multifield_input_widget($params)
-{
-	$data = $params[0];
-	$fieldname = $params[1];
-	
-	$html = '<div class="multifield multifield_'.$fieldname.'" id="'.$fieldname.'">';
-
-	$field = _F_($data,$fieldname);
-	// check if there are entires currently set for this resource
-	if ($field)
-		// loop through the elements and create the table rows
-		for ($i = 0; $i < sizeof($field); $i++)
-		{
-		$html .= '<div>
-				'.call('generate_multifield_input_'.$fieldname, array($data, $i)).'
-				<a href="#" onclick="javascript:$(this).parent().remove();return false;">remove</a>
-			</div>';
-		}
-	// add the new item button
-	$html .= '<a id="add'.$fieldname.'" href="#" onclick="javascript:multifield_add(\''.$fieldname.'\');return false;">add</a>';
-	$html .= '</div>';
-	return $html;
-}
-
-// field definition for manageable item
-function generate_input_field_title($data)
-{
-	return '<label>Title</label><input name="title" value="'._EF_($data,'title').'" autocomplete="off" />';
-}
-
-// field definition for manageable item
-function generate_input_field_description($data)
-{
-	return '<label>Description</label><textarea name="description" autocomplete="off" rows="8">'._EF_($data,'description').'</textarea>';
-}
-
-// field definition for manageable item
-function generate_input_field_creators($data)
-{
-	return '<label>Creators</label>'.call('generate_multifield_input_widget', array($data,'creators')).'
-		<div class="new_multifield" id="new_creators">
-			'._E_('<input name="creators[]" placeholder="name" autocomplete="off" /><input name="emails[]" placeholder="email" autocomplete="off" />').'
-		</div>';
-}
-
-function generate_multifield_input_creators($params)
-{
-	$data = $params[0];
-	$i = $params[1];
-
-	$creators = _F_($data, 'creators');
-	$emails = _F_($data, 'emails');
-
-	return '<input name="creators[]" value="'._E_($creators[$i]).'" placeholder="name" autocomplete="off" /><input name="emails[]" value="'._E_($emails[$i]).'" placeholder="email" autocomplete="off" />';
-}
-
-// field definition for manageable item
-function generate_input_field_license($data)
-{
-	global $CONF;
-
-	// add license dropdown box
-	$license_options = '';
-	foreach ($CONF['licenses'] as $key => $value)	
-	{
-		if (_F_($data, 'license') == $key)
-			$selected = 'selected';
-		else
-			$selected = '';
-
-		$license_options .= '<option value="'.$key.'" '.$selected.' autocomplete="off">'.$value.'</option>';
-	}
-
-	return '<label>License</label><select name="license" autocomplete="off">'.$license_options.'</select>';
-}
 
 /*********************
    RSS Export Module
@@ -1546,6 +1344,216 @@ function get_unique_creators() {
 
 	natcasesort($list);
 	return array_unique($list);
+}
+
+
+/****************************************************
+   Functions to interact with the local file system
+*****************************************************/
+// returns a list of all files within the RedFeather resource scope (i.e. that can be annotated)
+function get_file_list()
+{
+	global $CONF;
+	$file_list = array();
+	$dir = "./";
+	foreach (scandir($dir) as $file)
+	{
+		// exclude directories, hidden files, the RedFeather file and the metadata file
+		if( is_dir($dir.$file) || !call('check_file_allowed', $file)) continue;
+		array_push($file_list, $file);
+	}
+	return $file_list;
+}
+
+// checks whether a file is acceptable
+function check_file_allowed($filename)
+{
+	global $CONF;
+	if (preg_match("/^\./", $filename) || preg_match("/\.php/", $filename)  || $filename == $CONF['metadata_filename'])
+		return false;
+	else
+		return true;
+}
+
+
+// returns a absolute hyperlink to a given file
+function get_file_link($filename)
+{
+	global $CONF;
+	return $CONF['base_url'].rawurlencode($filename);
+}
+
+// returns the data a file was last edited
+function get_file_date($filename)
+{
+	return date ('d F Y H:i:s', filemtime($filename));
+}
+
+// returns the image size information from a file (replicates the behaviour of the standard php function
+function get_image_size($filename)
+{
+	return getimagesize($filename);
+}
+
+// loads the resource metadata from the filesystem in the global variable $CONF
+function load_data()
+{
+	global $CONF, $DATA;
+	$DATA = unserialize(file_get_contents($CONF['metadata_filename']));
+	if(!is_array($DATA) )
+		$DATA= array();
+}
+// saves the resource metadata to the filesystem
+function save_data()
+{
+	global $CONF, $DATA;
+	// save the array as serialized PHP
+	$fh = fopen($CONF['metadata_filename'], 'w');
+	fwrite($fh,serialize($DATA));
+	fclose($fh);
+}
+
+/*********************
+   Utility Functions
+ *********************/
+
+// Calls a function within RedFeather to provide a simple plugin architecture.
+// To maintain compatibility with PHP 4.0, functions should only take a single parameter - which is passed through to the target.
+// When a named function is called, the FUNCTION_OVERRIDE is first checked to see if an override function has been assigned.
+// If it has, that function is called, otherwise it will call the function directly.
+function call($function, $param=null)
+{
+	global $FUNCTION_OVERRIDE;
+	if (isset($FUNCTION_OVERRIDE[$function]))
+		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
+	else if (function_exists($function))
+		return call_user_func($function, $param);
+	else call_optional('fourohfour');
+}
+
+// as above but doesn't give an error if a non-existent function is called
+function call_optional($function, $param=null)
+{
+	global $FUNCTION_OVERRIDE;
+	if (isset($FUNCTION_OVERRIDE[$function]))
+		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
+	else if (function_exists($function))
+		return call_user_func($function, $param);
+	else return;
+}
+
+// function to check a user is authenticated - will block actions otherwise
+function authenticate()
+{
+	session_set_cookie_params(0, $CONF['script_url']);
+	session_start();
+
+	if (isset($_SESSION['current_user']))
+		return;
+	else
+		call_optional('fourohone');
+}
+
+// function to provide simple authentication functionality
+function authenticate_login()
+{
+	session_set_cookie_params(0, $CONF['script_url']);
+	session_start();
+
+	global $CONF, $BODY;
+
+	// check the session for an authenticated user and return to the parent function if valid.
+	if(isset($_SESSION['current_user']))
+		return;
+
+	// If this is a post requesting to log in, check username and password against authorised credentials.
+	if (isset($_POST['username']) && isset($_POST['password']) && isset($CONF['credentials'][$_POST['username']]))
+	{
+		if ($CONF['credentials'][$_POST['username']] == $_POST['password'] || $CONF['credentials'][$_POST['username']] == md5($_POST['password'])) 
+		{
+			$_SESSION['current_user']=$_POST['username'];
+			return;
+		}
+	}
+	
+	// if the user is unauthenticated and not making a signing post, render login screen.	
+	$BODY .= '<div id="rf_authenticate_login" class="rf_content"><h1>Log in</h1>';
+	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
+			Username <input type="text" name="username" />
+			Password <input type="password" name="password" />
+			<input type="submit" value="Login" />
+		</form></div>';
+
+	call('render_template');
+	exit;
+}
+
+
+// generates a named toolbar
+function generate_toolbar($toolbar)
+{
+	global $CONF;
+
+	$html ='<ul class="toolbar_'.$toolbar.'">';
+
+	foreach($CONF['toolbars'][$toolbar] as $tool)
+		$html .= '<li>'.call('generate_toolbar_item_'.$toolbar.'_'.$tool).'</li>';
+
+	return $html .= '</ul>';
+}
+
+// function to get a list of all the complete resources (i.e. with matching file/metadata)
+function get_resource_list()
+{
+	global $DATA;
+	$list = array();
+	$files = call('get_file_list');
+
+	foreach ($DATA as $filename => $data)
+		if (in_array($filename, $files)) array_push($list, $filename);
+	return $list;
+}
+
+function add_message($message)
+{
+	if (!isset($_SESSION['messages']))
+		$_SESSION['messages'] = array();
+	$_SESSION['messages'][] = $message;
+}
+
+function get_messages()
+{
+	if (!isset($_SESSION['messages']))
+		return array();
+	$messages = $_SESSION['messages'];
+	unset($_SESSION['messages']);
+	return $messages;
+}
+
+
+/***************************************************
+   Helper functions - these cannot be overwritten
+ ***************************************************/
+
+// helper function to html entity encode a string
+function _E_($s)
+{
+	return htmlentities($s);
+}
+
+// helper function to get a field
+function _F_($data, $field)
+{
+	if (isset($data[$field]))
+		return $data[$field];
+	else
+		return '';
+}
+
+// helper function to get a field html entity encoded
+function _EF_($data, $field)
+{
+	return _E_(_F_($data, $field));
 }
 
 
