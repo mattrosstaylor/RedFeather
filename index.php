@@ -202,7 +202,7 @@ function authenticate_login()
 	}
 	
 	// if the user is unauthenticated and not making a signing post, render login screen.	
-	$BODY .= '<div id="content"><h1>Log in</h1>';
+	$BODY .= '<div id="rf_authenticate_login" class="rf_content"><h1>Log in</h1>';
 	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
 			Username <input type="text" name="username" />
 			Password <input type="password" name="password" />
@@ -353,7 +353,7 @@ function fourohone()
 {
 	global $BODY, $TITLE;
 	$TITLE = '401 - '.$TITLE;
-	$BODY .= '<div id="content"><h1>401</h1><p>You are not authenticated.</p></div>';
+	$BODY .= '<div id="rf_fourohone" class="rf_content"><h1>401</h1><p>You are not authenticated.</p></div>';
 	header('Status: 401 Not Found');	
 	call('render_template');
 	exit;
@@ -364,7 +364,7 @@ function fourohfour()
 {
 	global $BODY, $TITLE;
 	$TITLE = '404 - '.$TITLE;
-	$BODY .= '<div id="content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
+	$BODY .= '<div id="rf_fourohone" class="rf_content"><h1>404</h1><p>That page doesn\'t exist.</p></div>';
 	header('Status: 404 Not Found');	
 	call('render_template');
 }
@@ -495,7 +495,7 @@ a:hover, a:active {
 	padding-right:0;
 	border-right: 0;
 }
-#content {
+.rf_content {
 	padding: 6px 0 6px 0;
 }
 .clearer {
@@ -671,10 +671,7 @@ function page_browse()
 {
 	global $CONF, $DATA, $BODY;
 
-	$BODY .= '<div id="content">'.call('generate_toolbar', 'browse');
-	
-	// div for resource list
-	$BODY .= '<div class="browse_list">';
+	$BODY .= '<div id="rf_page_browse" class="rf_content">'.call('generate_toolbar', 'browse');
 
 	// get the list of all files within the RedFeather scope
 	foreach(call('get_resource_list') as $filename)
@@ -736,7 +733,7 @@ function page_resource()
 
 	$TITLE = _EF_($data,'title').' - '.$TITLE;
 	$BODY .=
-		'<div id="content">
+		'<div id="rf_page_resource" class="rf_content">
 			<div id="preview">'.call('generate_preview', _F_($data,'filename')).'</div>
 			<div class="metadata">
 			'.call('generate_toolbar', 'resource').'
@@ -890,13 +887,13 @@ function generate_output_field_download($data)
  ***************************/
 
 $CSS .= <<<EOT
-.resource_manager table {
+#rf_page_resource_manager table {
 	margin-left: 20px;
 }
-.resource_manager form {
+#rf_page_resource_manager form {
 	margin-bottom: 12px;
 }
-.resource_manager table td {
+#rf_page_resource_manager table td {
 	padding: 0 15px 0 0;
 }
 tbody tr:first-child > td > .up { 
@@ -988,7 +985,7 @@ function page_resource_manager()
 	call('authenticate_login');
 	
 	$TITLE = 'Resource Manager - '.$TITLE;
-	$BODY .= '<div id="content" class="resource_manager"><h1>Resource Manager</h1>';
+	$BODY .= '<div id="rf_page_resource_manager" class="rf_content"><h1>Resource Manager</h1>';
 	$BODY .= call('generate_toolbar', 'resource_manager');
 	
 	$num = 1;
@@ -1212,7 +1209,7 @@ function page_edit()
 		}
 	}
 
-	$BODY .= '<div id="content">';
+	$BODY .= '<div id="rf_page_edit" class="rf_content">';
 	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
 	$BODY .= '<div class="manageable">'.call('generate_manageable_item', $data).'</div>';
 	$BODY .= '<input type="hidden" name="ACTION" value="save_resource">';
@@ -1254,7 +1251,7 @@ function generate_manageable_item($data)
 		
 	// optional fields
 	foreach ($CONF['fields'] as $fieldname)
-		$item_html .= call_optional("generate_input_field_$fieldname", $data).'<div class="clearer end_field"></div>';
+		$item_html .= call_optional("generate_input_field_$fieldname", $data).'<div class="end_field"></div>';
 
 	return $item_html;
 }
