@@ -10,7 +10,7 @@ $CONF = array();
 	// Text to use in the site header.
 	$CONF['repository_name'] = 'RedFeather';
 	$CONF['repository_tagline'] = 'Lightweight Resource Exhibition and Discovery';
-
+	
 	// Colour scheme for the repository.
 	$CONF['theme'] = array(
 		'linkcolor'=>'#AC1F1F', // colour used for hyperlinks, banner trim and the coloured section of the header 
@@ -20,6 +20,9 @@ $CONF = array();
 		'font'=>'sans-serif', // font to use for the site
 		'background'=>'', // page background colour
 	);
+	
+	// Optional descriptive text for the top of the browse page.
+	$CONF['browse_html'] = '';
 
 	// Optional header section to allow navigation from RedFeather back to a parent site.
 	//$CONF['return_link'] = array('text'=>'return to site >', 'href'=>'http://www.example.com');
@@ -301,8 +304,9 @@ function generate_toolbar_item_footer_resource_manager()
 // Lists all the resources that have been annotated and provides a facility to search.
 function page_browse()
 {
-	global $BODY;
+	global $BODY, $CONF;
 	$BODY .= '<div id="rf_page_browse" class="rf_content">'.call('generate_toolbar', 'browse');
+	$BODY .= $CONF['browse_html'];
 	$BODY .= call('generate_resource_list');	
 	$BODY .= '</div>';
 	call('render_template');
@@ -332,7 +336,7 @@ function generate_resource_list()
 // toolbar item for browse page
 function generate_toolbar_item_browse_search()
 {
-	return 'Search these resources: <input id="rf_filter" onkeyup="filter()"type="text" value="" />';
+	return 'Filter resources: <input id="rf_filter" onkeyup="filter()"type="text" value="'.$_GET['filter'].'" />';
 }
 
 // toolbar item for browse page
@@ -379,13 +383,14 @@ function page_view()
 // generates the resource itself
 function generate_resource($data)
 {
+	global $CONF;
 	return '
 		'.call('generate_preview', _F_($data,'filename')).'
 		<div id="rf_metadata">
 			<h1>'._EF_($data,'title').'</h1>
 			<p>'.nl2br(_EF_($data,'description')).'</p>
 			'.call('generate_metadata_table', $data)
-			.call('generate_comment_widget').'
+			.call('generate_comment_widget',$CONF['element_size']['metadata_width']).'
 		</div>
 		<div class="rf_clearer"></div>';
 }
@@ -432,7 +437,7 @@ function generate_preview($filename)
 }
 
 // return the Facebook comment widget
-function generate_comment_widget($this_url)
+function generate_comment_widget($width)
 {
 	global $CONF, $DATA;
 
@@ -451,7 +456,7 @@ function generate_comment_widget($this_url)
 				fjs.parentNode.insertBefore(js, fjs);
 			}(document, "script", "facebook-jssdk"));
 		</script>
-		<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$CONF['element_size']['metadata_width'].'"></div>';
+		<div class="fb-comments" data-href="'.$this_url.'" data-num-posts="2" data-width="'.$width.'"></div>';
 }
 
 // returns the metadata table for the resource data specified
@@ -576,7 +581,7 @@ EOT;
 function javascript_view()
 {
 	return <<<EOT
-function filter(){
+function filter() {
 	var filter = $("#rf_filter").val();
  	if(filter == ""){
 		$(".rf_resource").show();  
@@ -592,7 +597,10 @@ function preview_fallback() {
 		d.className = d.className + ' rf_message_inserted';
 }
 
-window.setTimeout('preview_fallback()', 10000);
+$(document).ready(function() {
+	filter();
+	window.setTimeout('preview_fallback()', 10000);
+});
 EOT;
 }
 
@@ -662,7 +670,6 @@ function page_resource_manager()
 
 	// hidden form for deletion
 	$BODY .= '<form id="rf_delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete"/><input id="rf_delete_file_field" type="hidden" name="filename"></form>';
-	
 
 	// new deposit box
 	$BODY .= '<h1>New deposit</h1>';
@@ -711,7 +718,8 @@ function page_edit()
 	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
 	$BODY .= '<div class="rf_manageable">'.call('generate_manageable_item', $data).'</div>';
 	$BODY .= '<input type="hidden" name="ACTION" value="save">';
-	$BODY .= '<input type="submit" value="Save"/>';
+	$BODY .= '<input type="submit" name="submit_action" value="Save"/>';
+	$BODY .= '<input type="submit" name="submit_action" value="Clear Metadata" onclick="return confirm(\'Clear metadata for '.$filename.'?\');" class="rf_clear_metadata" />';
 	$BODY .= '</form>';
 	$BODY .= '</div>';
 	call('render_template');
@@ -913,17 +921,31 @@ function post_save()
 
 	// get the filename
 	$filename = $_POST['filename'];
+	$submit_action = $_POST['submit_action'];
 
-	// replace the data if it already exists, otherwise prepend it to the array as the top item
-	if (isset($DATA[$filename]))
-		$DATA[$filename] = $_POST;
-	else
-		$DATA = array_merge(array($filename => $_POST), $DATA);
+	if ($submit_action == 'Save') {
+		// replace the data if it already exists, otherwise prepend it to the array as the top item
+		if (isset($DATA[$filename]))
+			$DATA[$filename] = $_POST;
+		else
+			$DATA = array_merge(array($filename => $_POST), $DATA);
 
-	call('save_data');
+		call('save_data');
 
-	// redirect to the resource page
-	header('Location:'.$CONF['script_url'].'?file='.rawurlencode($filename));
+		// redirect to the resource page
+		header('Location:'.$CONF['script_url'].'?file='.rawurlencode($filename));
+	}
+	else if ($submit_action == 'Clear Metadata') {
+		// delete the metadata if it exists
+		if (isset($DATA[$filename])) {
+			unset($DATA[$filename]);
+			call('save_data');
+		}
+
+		call('add_message', $filename.' metadata removed.');
+		// redirect to the resource page
+		header('Location:'.$CONF['script_url'].'?page=resource_manager');
+	}
 }
 
 function post_delete()
@@ -1011,6 +1033,9 @@ tbody tr:last-child > td > .rf_down {
 }
 .rf_new_multifield {
 	display: none;
+}
+.rf_clear_metadata {
+	float: right;
 }
 EOT;
 }
@@ -1453,7 +1478,7 @@ function authenticate()
 	session_set_cookie_params(0, $CONF['script_url']);
 	session_start();
 
-	if (isset($_SESSION['current_user']))
+	if (isset($_SESSION['authenticated']))
 		return;
 	else
 		call_optional('fourohone');
@@ -1468,7 +1493,7 @@ function authenticate_login()
 	global $CONF, $BODY;
 
 	// check the session for an authenticated user and return to the parent function if valid.
-	if(isset($_SESSION['current_user']))
+	if(isset($_SESSION['authenticated']))
 		return;
 
 	// If this is a post requesting to log in, check username and password against authorised credentials.
@@ -1476,7 +1501,7 @@ function authenticate_login()
 	{
 		if ($CONF['credentials'][$_POST['username']] == $_POST['password'] || $CONF['credentials'][$_POST['username']] == md5($_POST['password'])) 
 		{
-			$_SESSION['current_user']=$_POST['username'];
+			$_SESSION['authenticated']=$_POST['username'];
 			return;
 		}
 	}
@@ -1590,12 +1615,10 @@ function _EF_($data, $field)
 // If a plugin directory exists, open it and include any php files it contains.
 // Some variables and functions could be overwritten at this point, depending on the plugins installed.
 if(is_dir($CONF['plugin_dir']))
-	if ($dh = opendir($CONF['plugin_dir']))
-	{ 
-		while (($file = readdir($dh)) !== false) 
-			if(is_file($CONF['plugin_dir'].'/'.$file) && preg_match('/\.php$/', $file) && $file != $CONF['script_filename'])
-				include($CONF['plugin_dir'].'/'.$file);
-		closedir($dh);
+	foreach (scandir($CONF['plugin_dir']) as $file)
+	{  
+		if(preg_match('/\.php$/', $file) && $file != $CONF['script_filename'])
+			include($CONF['plugin_dir'].'/'.$file);
 	}
 // title needs to be set AFTER plugins have been loaded
 $TITLE = $CONF['repository_name'];
