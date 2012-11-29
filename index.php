@@ -948,9 +948,6 @@ function post_save()
 			$DATA = array_merge(array($filename => $_POST), $DATA);
 
 		call('save_data');
-
-		// redirect to the resource page
-		header('Location:'.$CONF['script_url'].'?file='.rawurlencode($filename));
 	}
 	else if ($submit_action == 'Clear Metadata') {
 		// delete the metadata if it exists
@@ -960,9 +957,10 @@ function post_save()
 		}
 
 		call('add_message', $filename.' metadata removed.');
-		// redirect to the resource page
-		header('Location:'.$CONF['script_url'].'?page=resource_manager');
-	}
+		}
+	// redirect to the resource manager
+	header('Location:'.$CONF['script_url'].'?page=resource_manager');
+
 }
 
 // post handler for deleting a resource
