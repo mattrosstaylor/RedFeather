@@ -1,11 +1,23 @@
 <?php ini_set('display_errors', 1);ini_set('log_errors', 1);error_reporting(E_ERROR | E_PARSE);
 
+/***
+ *   ____          _ _____          _   _
+ *  |  _ \ ___  __| |  ___|__  __ _| |_| |__   ___ _ __
+ *  | |_) / _ \/ _` | |_ / _ \/ _` | __| '_ \ / _ \ '__|
+ *  |  _ <  __/ (_| |  _|  __/ (_| | |_| | | |  __/ |
+ *  |_| \_\___|\__,_|_|  \___|\__,_|\__|_| |_|\___|_|
+ * 
+ *	  Matt R Taylor & Patrick McSweeney
+ *	  https://github.com/mattrosstaylor/RedFeather
+ *	  redfeather.ecs.soton.ac.uk
+ */
+
 // global variable for configuration
 $CONF = array(); 
 
-/****************************	
-   RedFeather Configuration
- ****************************/	
+/*****************	
+   Configuration
+ *****************/	
 
 	// Text to use in the site header.
 	$CONF['repository_name'] = 'RedFeather';
@@ -684,6 +696,7 @@ function page_resource_manager()
 	call('render_template');
 }
 
+// page for editing a resource
 function page_edit()
 {
 	global $CONF, $DATA, $BODY, $TITLE;
@@ -789,6 +802,7 @@ function generate_input_field_creators($data)
 		</div>';
 }
 
+// multifield defininition for manageable item
 function generate_multifield_input_creators($params)
 {
 	$data = $params[0];
@@ -820,6 +834,7 @@ function generate_input_field_license($data)
 	return '<label>License</label><select name="license" autocomplete="off">'.$license_options.'</select>';
 }
 
+// post handler for saving the order of resources
 function post_reorder_resources()
 {
 	global $DATA;
@@ -852,6 +867,7 @@ function post_reorder_resources()
 	header('Location:'.$CONF['script_url'].'?page=resource_manager');
 }
 
+// returns a human readable version of a PHP upload error
 function get_upload_error_message($code)
 {
 	switch ($code) {
@@ -874,6 +890,7 @@ function get_upload_error_message($code)
 	} 
 } 
 
+// post handler for file upload
 function post_upload()
 {
 	$filename = $_FILES['file']['name'];
@@ -914,7 +931,7 @@ function post_upload()
 	header('Location:'.$CONF['script_url'].'?page=edit&file='.rawurlencode($filename));
 }
 
-// public function to save data from the resource manager to the local file system
+// post handler to save resource metadata
 function post_save()
 {
 	global $CONF, $DATA;
@@ -948,6 +965,7 @@ function post_save()
 	}
 }
 
+// post handler for deleting a resource
 function post_delete()
 {
 	global $DATA;
@@ -1040,6 +1058,7 @@ tbody tr:last-child > td > .rf_down {
 EOT;
 }
 
+// static content for resource manager
 function javascript_resource_manager()
 {
 return <<<EOT
@@ -1268,8 +1287,7 @@ function generate_rdf_field_download($params)
 ';
 }
 
-// public function for unique people
-// allows them to be assigned a URI
+// Public function to act as a target for creator URIs
 function page_creators() {
 	global $CONF, $BODY, $TITLE;
 
@@ -1302,6 +1320,7 @@ function get_unique_creators() {
 /****************************************************
    Functions to interact with the local file system
 *****************************************************/
+
 // returns a list of all files within the RedFeather resource scope (i.e. that can be annotated)
 function get_file_list()
 {
@@ -1361,7 +1380,8 @@ function save_data()
 	global $CONF, $DATA;
 	// save the array as serialized PHP
 	$fh = fopen($CONF['metadata_filename'], 'w');
-	fwrite($fh,serialize($DATA));
+	if (!fwrite($fh,serialize($DATA)))
+		call('add_message', 'Could not write to '. $CONF['metadata_filename']);
 	fclose($fh);
 }
 
@@ -1369,6 +1389,7 @@ function save_data()
 /*****************
    Utility pages
  *****************/
+
 // Public function for CSS
 function page_css()
 {
@@ -1553,6 +1574,7 @@ function add_message($message)
 	$_SESSION['messages'][] = $message;
 }
 
+// function to fully dequeue the list of user messages
 function get_messages()
 {
 	if (!isset($_SESSION['messages']))
@@ -1562,6 +1584,7 @@ function get_messages()
 	return $messages;
 }
 
+// convenience function to dequeue the messages into an unordered list
 function generate_message_list()
 {
 	$html = '';
@@ -1576,6 +1599,7 @@ function generate_message_list()
 	return $html;
 }
 
+// conventience function to return the compulsory head elements for a RedFeather template
 function generate_head_elements()
 {
 	return '<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>

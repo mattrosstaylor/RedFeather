@@ -1,14 +1,19 @@
 <?php
 
+/******************
+   Field Keywords
+ ******************/
+
+// minimum and maximum font size for the tagcloud (in pt)
+$CONF['tagcloud_minsize'] = 20;
+$CONF['tagcloud_maxsize'] = 72;
+
 
 $CONF['fields'][] = 'keywords';
 $CONF['toolbar']['browse'][] = 'browse_tagcloud';
 $CONF['css'][] = 'css_field_keywords';
 
-$CONF['tagcloud_minsize'] = 20;
-$CONF['tagcloud_maxsize'] = 72;
-
-
+// static content for keywords
 function css_field_keywords()
 { 
 	return <<<EOT

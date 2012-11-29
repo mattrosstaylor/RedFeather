@@ -1,5 +1,9 @@
 <?php
 
+/***************
+   JSON export
+ ***************/
+
 $CONF['toolbar']['browse'][] = 'browse_json';
 
 // public function for JSON

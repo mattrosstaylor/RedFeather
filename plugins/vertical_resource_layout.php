@@ -1,5 +1,9 @@
 <?php
 
+/****************************
+   Vertical Resource Layout
+ ****************************/
+
 // Dimensions for various elements for the site.
 $CONF['element_size'] = array(
 	'preview_width'=>750, // width of the resource preview in px
