@@ -267,6 +267,7 @@ EOT;
 	print 
 		'<!DOCTYPE HTML>
 		<html><head>
+                        <meta charset="utf-8" />
 			<title>'.$TITLE.'</title>
 			<style type="text/css">'.$template_css.'</style>
 			'.call('generate_head_elements').'
@@ -631,7 +632,7 @@ function page_resource_manager()
 	$BODY .= call('generate_toolbar', 'resource_manager');
 	
 	$num = 1;
-	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
+	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST" accept-charset="utf-8">';
 	$BODY .= '<table><tbody>';
 
 	// iterate through all the files currently present in the filesystem	
@@ -681,11 +682,11 @@ function page_resource_manager()
 	}
 
 	// hidden form for deletion
-	$BODY .= '<form id="rf_delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST"><input type="hidden" name="ACTION" value="delete"/><input id="rf_delete_file_field" type="hidden" name="filename"></form>';
+	$BODY .= '<form id="rf_delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST" accept-charset="utf-8"><input type="hidden" name="ACTION" value="delete"/><input id="rf_delete_file_field" type="hidden" name="filename"></form>';
 
 	// new deposit box
 	$BODY .= '<h1>New deposit</h1>';
-	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?page=post" enctype="multipart/form-data">';
+	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?page=post" enctype="multipart/form-data" accept-charset="utf-8">';
 	$BODY .= '<input type="file" name="file" />';
 	$BODY .= '<input type="hidden" name="ACTION" value="upload"/>';
 	$BODY .= '<input type="submit" value="Upload"/>';
@@ -728,7 +729,7 @@ function page_edit()
 	}
 
 	$BODY .= '<div id="rf_page_edit" class="rf_content">';
-	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST">';
+	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST" accept-charset="utf-8">';
 	$BODY .= '<div class="rf_manageable">'.call('generate_manageable_item', $data).'</div>';
 	$BODY .= '<input type="hidden" name="ACTION" value="save">';
 	$BODY .= '<input type="submit" name="submit_action" value="Save"/>';
@@ -1527,7 +1528,7 @@ function authenticate_login()
 	
 	// if the user is unauthenticated and not making a signing post, render login screen.	
 	$BODY .= '<div id="rf_authenticate_login" class="rf_content"><h1>Log in</h1>';
-	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'">
+	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'" accept-charset="utf-8">
 			Username <input type="text" name="username" />
 			Password <input type="password" name="password" />
 			<input type="submit" value="Login" />
@@ -1612,7 +1613,7 @@ function generate_head_elements()
 // helper function to html entity encode a string
 function _E_($s)
 {
-	return htmlentities($s);
+	return htmlspecialchars($s);
 }
 
 // helper function to get a field
