@@ -1248,7 +1248,7 @@ function generate_rdf_field_creators($params)
 				$xml .=
 '	<rdf:Description rdf:about="'.$creator_uri.'">
 		<foaf:name>'._E_($creator).'</foaf:name>
-		<foaf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
+		<rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
 	</rdf:Description>
 ';
 			}
