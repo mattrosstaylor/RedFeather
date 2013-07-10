@@ -30,7 +30,7 @@ $CONF = array();
 		'text1'=>'black', // main text colour
 		'text2'=>'#606060', // annotation colour
 		'font'=>'sans-serif', // font to use for the site
-		'background'=>'', // page background colour
+		'background'=>'#ffffff', // page background colour
 	);
 	
 	// Optional descriptive text for the top of the browse page.
