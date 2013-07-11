@@ -275,7 +275,7 @@ EOT;
 		<body>
 			'.call('generate_message_list').'
 			<div id="rf_header"><div class="rf_center">
-				<h1><a href="'.$CONF['script_filename'].'">
+				<h1><a href="'.call( 'url' ).'">
 					'.$CONF['repository_name'].'
 				</a></h1>';
 
@@ -305,7 +305,7 @@ function generate_toolbar_item_footer_credit()
 function generate_toolbar_item_footer_resource_manager()
 {
 	global $CONF;
-	return '<a href="'.$CONF['script_filename'].'?page=resource_manager">Resource Manager</a>';
+	return '<a href="'.call('page_url','resource_manager').'">Resource Manager</a>';
 }
 
 
@@ -335,7 +335,7 @@ function generate_resource_list()
 	{
 		$data = $DATA[$filename];
 		// render the resource using the "generate_metadata_table" function
-		$url = $CONF['script_filename'].'?file='.rawurlencode($filename);
+		$url = call( "file_url", rawurlencode($filename) );
 		$html .= 
 			'<div class="rf_resource">
 				<h1><a href="'.$url.'">'._EF_($data,'title').'</a></h1>
@@ -356,14 +356,44 @@ function generate_toolbar_item_browse_search()
 function generate_toolbar_item_browse_rss()
 {
 	global $CONF;
-	return '<a href="'.$CONF['script_filename'].'?page=rss"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>';
+	return '<a href="'.call('page_url','rss').'"><img src="http://icons.iconarchive.com/icons/danleech/simple/16/rss-icon.png"/> RSS</a>';
 }
 
 // toolbar item for browse page
 function generate_toolbar_item_browse_rdf()
 {
 	global $CONF;
-	return '<a href="'.$CONF['script_filename'].'?page=rdf"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
+	return '<a href="'.call('page_url','rdf').'"><img src="http://icons.iconarchive.com/icons/milosz-wlazlo/boomy/16/database-icon.png"/> RDF+XML</a>';
+}
+
+// return the link to a page (can be overridden to allow REST)
+function page_url( $page, $opts="" )
+{
+	global $CONF;
+	
+	$url = $CONF['script_url'].'?page='.$page;
+	if( $opts != "" ) { $url .= "&$opts"; }
+
+	return $url;
+}
+	
+// return the link to a page about a file (can be overridden to allow REST)
+function file_url( $file, $opts="" )
+{
+	global $CONF;
+	
+	$url = $CONF['script_url'].'?file='.$file;
+	if( $opts != "" ) { $url .= "&$opts"; }
+
+	return $url;
+}
+
+// return the main URL for the install. (can be overridden to allow REST)
+function url()
+{
+	global $CONF;
+
+	return $CONF['script_url'];
 }
 
 // View the resource preview, metadata and social networking plugin
@@ -456,7 +486,7 @@ function generate_comment_widget($width)
 
 	// this can be changed to make it create the widget for the current page
 	$data = $DATA[rawurldecode($_REQUEST['file'])];
-	$this_url = $CONF['script_url'].'?file='._EF_($data,'filename');
+	$this_url = _E_( call( "file_url", _F_($data,'filename') ) );
 
 	return '
 		<div id="fb-root"></div>
@@ -632,7 +662,7 @@ function page_resource_manager()
 	$BODY .= call('generate_toolbar', 'resource_manager');
 	
 	$num = 1;
-	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST" accept-charset="utf-8">';
+	$BODY .= '<form action="'.call('page_url','post').'" method="POST" accept-charset="utf-8">';
 	$BODY .= '<table><tbody>';
 
 	// iterate through all the files currently present in the filesystem	
@@ -644,8 +674,8 @@ function page_resource_manager()
 		$BODY .= '<td>'._EF_($data, 'title').'</td>';
 		$BODY .= '<td class="rf_updown"><a href="#" class="rf_up">&uarr;</a><a href="#" class="rf_down">&darr;</a></td>';
 		$BODY .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
-		$BODY .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">edit</a></td>';
-		$BODY .= '<td><a href="'.$CONF['script_filename'].'?file='.rawurlencode($filename).'">view</a></td>';
+		$BODY .= '<td><a href="'.call('page_url','edit', 'file='.rawurlencode($filename)).'">edit</a></td>';
+		$BODY .= '<td><a href="'.call('file_url', rawurlencode($filename)).'">view</a></td>';
 		$BODY .= '<td><a href="#" onclick="javascript:post_delete_form(\''.$filename.'\');">delete</a></td>';
 		$BODY .= '<input type="hidden" name="ordering[]" value="'._E_($filename).'"/>';
 		$BODY .= '</tr>';
@@ -673,7 +703,7 @@ function page_resource_manager()
 		{
 			$BODY .= '<tr>';
 			$BODY .= '<td><a href="'._E_(call('get_file_link',$filename)).'" target="_blank">'.$filename.'</td>';
-			$BODY .= '<td><a href="'.$CONF['script_filename'].'?page=edit&file='.rawurlencode($filename).'">edit</a></td>';
+			$BODY .= '<td><a href="'.call('page_url','edit','file='.rawurlencode($filename)).'">edit</a></td>';
 			$BODY .= '<td><a href="#" onclick="javascript:post_delete_form(\''.$filename.'\');">delete</a></td>';
 			$BODY .= '</tr>';    
 		}
@@ -682,11 +712,11 @@ function page_resource_manager()
 	}
 
 	// hidden form for deletion
-	$BODY .= '<form id="rf_delete_file" action="'.$CONF['script_filename'].'?page=post" method="POST" accept-charset="utf-8"><input type="hidden" name="ACTION" value="delete"/><input id="rf_delete_file_field" type="hidden" name="filename"></form>';
+	$BODY .= '<form id="rf_delete_file" action="'.call('page_url','post').'" method="POST" accept-charset="utf-8"><input type="hidden" name="ACTION" value="delete"/><input id="rf_delete_file_field" type="hidden" name="filename"></form>';
 
 	// new deposit box
 	$BODY .= '<h1>New deposit</h1>';
-	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?page=post" enctype="multipart/form-data" accept-charset="utf-8">';
+	$BODY .= '<form method="post" action="'.call('page_url','post').'" enctype="multipart/form-data" accept-charset="utf-8">';
 	$BODY .= '<input type="file" name="file" />';
 	$BODY .= '<input type="hidden" name="ACTION" value="upload"/>';
 	$BODY .= '<input type="submit" value="Upload"/>';
@@ -729,7 +759,7 @@ function page_edit()
 	}
 
 	$BODY .= '<div id="rf_page_edit" class="rf_content">';
-	$BODY .= '<form action="'.$CONF['script_filename'].'?page=post" method="POST" accept-charset="utf-8">';
+	$BODY .= '<form action="'.call('page_url','post').'" method="POST" accept-charset="utf-8">';
 	$BODY .= '<div class="rf_manageable">'.call('generate_manageable_item', $data).'</div>';
 	$BODY .= '<input type="hidden" name="ACTION" value="save">';
 	$BODY .= '<input type="submit" name="submit_action" value="Save"/>';
@@ -865,7 +895,7 @@ function post_reorder_resources()
 	call('save_data');
 
 	// redirect to the resource page
-	header('Location:'.$CONF['script_url'].'?page=resource_manager');
+	header('Location:'.call('page_url','resource_manager').'');
 }
 
 // returns a human readable version of a PHP upload error
@@ -901,14 +931,14 @@ function post_upload()
 	if ($_FILES['file']['error'] > 0)
 	{
 		call('add_message', call('get_upload_error_message', $_FILES['file']['error']));
-		header('Location:'.$CONF['script_url'].'?page=resource_manager');
+		header('Location:'.call('page_url','resource_manager'));
 		return;
 	}
 
 	if (!check_file_allowed($filename))
 	{
 		call('add_message', 'Invalid file type.');
-		header('Location:'.$CONF['script_url'].'?page=resource_manager');
+		header('Location:'.call('page_url','resource_manager'));
 		return;
 	}
 
@@ -918,18 +948,18 @@ function post_upload()
 	if (in_array($filename, $file_list) && !$_POST['overwrite'])
 	{
 		call('add_message', 'File already exists.');
-		header('Location:'.$CONF['script_url'].'?page=resource_manager');
+		header('Location:'.call('page_url','resource_manager'));
 		return;
 	}
 
 	if (!copy($_FILES['file']['tmp_name'], $filename))
 	{
 		call('add_message', 'File could not be written.');
-		header('Location:'.$CONF['script_url'].'?page=resource_manager');
+		header('Location:'.call('page_url','resource_manager'));
 		return;
 	}
 	
-	header('Location:'.$CONF['script_url'].'?page=edit&file='.rawurlencode($filename));
+	header('Location:'.call('page_url','edit','file='.rawurlencode($filename)));
 }
 
 // post handler to save resource metadata
@@ -960,7 +990,7 @@ function post_save()
 		call('add_message', $filename.' metadata removed.');
 		}
 	// redirect to the resource manager
-	header('Location:'.$CONF['script_url'].'?page=resource_manager');
+	header('Location:'.call('page_url','resource_manager'));
 
 }
 
@@ -977,7 +1007,7 @@ function post_delete()
 		if (!unlink($filename))
 		{
 			call('add_message', 'File could not be deleted.');
-			header('Location:'.$CONF['script_url'].'?page=resource_manager');
+			header('Location:'.call('page_url','resource_manager'));
 			return;
 		}
 
@@ -992,7 +1022,7 @@ function post_delete()
 	else
 		call('add_message', $filename.' does not exist.');
 
-	header('Location:'.$CONF['script_url'].'?page=resource_manager');
+	header('Location:'.call('page_url','resource_manager'));
 }
 
 // static content for resource manager
@@ -1115,8 +1145,8 @@ function page_rss() {
 '<?xml version="1.0" encoding="utf-8" ?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel>
 	<title>'.$CONF['repository_name'].'</title>
-	<link>'.$CONF['script_url'].'</link>
-	<atom:link rel="self" href="'.$CONF['script_url'].'?page=rss" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
+	<link>'.call( 'url' ).'</link>
+	<atom:link rel="self" href="'.call('page_url','rss').'" type="application/rss+xml" xmlns:atom="http://www.w3.org/2005/Atom"></atom:link>
 	<description>'.$CONF['repository_tagline'].'</description>
 	<language>en</language>
 ';
@@ -1161,7 +1191,7 @@ function generate_rss_field_date($data)
 function generate_rss_field_download($data)
 {
 	global $CONF;
-	$resource_url = _E_($CONF['script_url'].'?file='.rawurlencode(_F_($data, 'filename')));
+	$resource_url = _E_( call( "file_url", rawurlencode(_F_($data, 'filename'))));
 	return '		<link>'.$resource_url.'</link>
 		<guid>'.$resource_url.'</guid>
 ';
@@ -1191,7 +1221,7 @@ function page_rdf() {
         foreach($resource_list as $filename)
 	{
 		$data = $DATA[$filename];
-		$resource_uri = _E_($CONF['script_url'].'?file='.$filename);
+		$resource_uri = _E_( call( "file_url", $filename ) );
 
 		//  fields
 		foreach ($CONF['fields'] as $fieldname)
@@ -1239,7 +1269,7 @@ function generate_rdf_field_creators($params)
 	if ($creators)
 			foreach($creators as $creator)
 			{
-				$creator_uri = $CONF['script_url'].'?page=creators#'._E_($creator);
+				$creator_uri = call('page_url','creators').'#'._E_($creator);
 				$xml .=
 '	<rdf:Description rdf:about="'.$resource_uri.'">
 		<dct:creator rdf:resource="'.$creator_uri.'"/>
@@ -1460,24 +1490,24 @@ function fourohfour()
 // To maintain compatibility with PHP 4.0, functions should only take a single parameter - which is passed through to the target.
 // When a named function is called, the FUNCTION_OVERRIDE is first checked to see if an override function has been assigned.
 // If it has, that function is called, otherwise it will call the function directly.
-function call($function, $param=null)
+function call($function, $p1=null, $p2=null, $p3=null, $p4=null, $p5=null, $p6=null, $p7=null, $p8=null, $p9=null, $p10=null)
 {
 	global $FUNCTION_OVERRIDE;
 	if (isset($FUNCTION_OVERRIDE[$function]))
-		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
+		return call_user_func($FUNCTION_OVERRIDE[$function], $p1,$p2,$p3,$p4,$p5,$p6,$p7,$p8,$p9,$p10);
 	else if (function_exists($function))
-		return call_user_func($function, $param);
+		return call_user_func($function, $p1,$p2,$p3,$p4,$p5,$p6,$p7,$p8,$p9,$p10);
 	else die($function.' is not a valid function');
 }
 
 // as above but doesn't give an error if a non-existent function is called
-function call_optional($function, $param=null)
+function call_optional($function, $p1=null, $p2=null, $p3=null, $p4=null, $p5=null, $p6=null, $p7=null, $p8=null, $p9=null, $p10=null)
 {
 	global $FUNCTION_OVERRIDE;
 	if (isset($FUNCTION_OVERRIDE[$function]))
-		return call_user_func($FUNCTION_OVERRIDE[$function], $param);
+		return call_user_func($FUNCTION_OVERRIDE[$function], $p1,$p2,$p3,$p4,$p5,$p6,$p7,$p8,$p9,$p10);
 	else if (function_exists($function))
-		return call_user_func($function, $param);
+		return call_user_func($function, $p1,$p2,$p3,$p4,$p5,$p6,$p7,$p8,$p9,$p10);
 	else return;
 }
 
@@ -1495,7 +1525,7 @@ function call_page($function, $param=null)
 // function to check a user is authenticated - will block actions otherwise
 function authenticate()
 {
-	session_set_cookie_params(0, $CONF['script_url']);
+	session_set_cookie_params(0, call( 'url' ));
 	session_start();
 
 	if (isset($_SESSION['authenticated']))
@@ -1507,7 +1537,7 @@ function authenticate()
 // function to provide simple authentication functionality
 function authenticate_login()
 {
-	session_set_cookie_params(0, $CONF['script_url']);
+	session_set_cookie_params(0, call( 'url' ));
 	session_start();
 
 	global $CONF, $BODY;
@@ -1528,7 +1558,7 @@ function authenticate_login()
 	
 	// if the user is unauthenticated and not making a signing post, render login screen.	
 	$BODY .= '<div id="rf_authenticate_login" class="rf_content"><h1>Log in</h1>';
-	$BODY .= '<form method="post" action="'.$CONF['script_filename'].'?'.$_SERVER['QUERY_STRING'].'" accept-charset="utf-8">
+	$BODY .= '<form method="post" action="?'.$_SERVER['QUERY_STRING'].'" accept-charset="utf-8">
 			Username <input type="text" name="username" />
 			Password <input type="password" name="password" />
 			<input type="submit" value="Login" />
@@ -1602,8 +1632,8 @@ function generate_message_list()
 function generate_head_elements()
 {
 	return '<script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
-<script src="'.$CONF['script_filename'].'?page=javascript" type="text/javascript"></script>
-<link rel="stylesheet" type="text/css" href="'.$CONF['script_filename'].'?page=css"/>';
+<script src="'.call('page_url','javascript').'" type="text/javascript"></script>
+<link rel="stylesheet" type="text/css" href="'.call('page_url','css').'"/>';
 }
 
 /***************************************************
@@ -1633,6 +1663,22 @@ function _EF_($data, $field)
 
 
 /******************************
+   Main function to dispatch a page
+ ******************************/
+
+function handle_request()
+{
+	global $CONF;
+
+	if(isset($_REQUEST['page']))
+		call_page('page_'.$_REQUEST['page']);
+	else if (isset($_REQUEST['file']))
+		call_page('page_view');
+	else
+		call_page($CONF['default_page']);
+}	
+
+/******************************
    Entry Point for RedFeather
  ******************************/
 // If a plugin directory exists, open it and include any php files it contains.
@@ -1653,12 +1699,7 @@ call('load_data');
 // publically accessible functions should be prefixed with "page_".
 // If a "file" parameter has been specified in isolation, load the resource page.
 // If no parameter has been specified, use the default.
-if(isset($_REQUEST['page']))
-	call_page('page_'.$_REQUEST['page']);
-else if (isset($_REQUEST['file']))
-	call_page('page_view');
-else
-	call_page($CONF['default_page']);
+call('handle_request');
 
 /*******
    End
